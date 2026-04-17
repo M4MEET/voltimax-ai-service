@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import json
 import logging
+import time as _time
 
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.api.middleware.jwt_auth import validate_jwt
 from app.chat.manager import ChatManager
 from app.chat.models import IncomingMessage, MessageRole, OutgoingMessage
+from app.analytics.collector import track_response_time as _track_rt
+from app.analytics.collector import track_session_end as _track_end
 from app.config import get_config
 
 logger = logging.getLogger(__name__)
@@ -21,7 +24,6 @@ class ConnectionHandler:
         self.active_connections: dict[str, WebSocket] = {}
 
     async def handle_websocket(self, websocket: WebSocket) -> None:
-        import time as _time
         _session_start = _time.monotonic()
 
         await websocket.accept()
@@ -115,7 +117,6 @@ class ConnectionHandler:
                     token_count = 0
                     escalated = False
 
-                    from app.analytics.collector import track_response_time as _track_rt
                     _t0 = _time.monotonic()
                     async for chunk in engine.process_message(
                         message=msg.content,
@@ -147,6 +148,7 @@ class ConnectionHandler:
                             break
 
                     _elapsed_ms = int((_time.monotonic() - _t0) * 1000)
+                    # llm_latency_ms is estimated at 80% of total until providers expose actual LLM timing
                     _llm_ms = int(_elapsed_ms * 0.8)
                     _provider = session.get("llm_provider", "unknown") if session else "unknown"
                     try:
@@ -214,13 +216,14 @@ class ConnectionHandler:
             except Exception:
                 pass
         finally:
-            from app.analytics.collector import track_session_end as _track_end
             _duration = int(_time.monotonic() - _session_start)
+            # NOTE: _sessions is a private attribute of ChatManager; fragile if internal structure changes
             _msg_count = self.chat_manager._sessions.get(session_id, {}).get("message_count", 0) if session_id else 0
-            try:
-                await _track_end(session_id or "unknown", _duration, _msg_count)
-            except Exception:
-                pass
+            if session_id:
+                try:
+                    await _track_end(session_id, _duration, _msg_count)
+                except Exception:
+                    pass
 
             if session_id:
                 self.active_connections.pop(session_id, None)
