@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from app.db.collections import admin_config_collection
@@ -18,6 +18,6 @@ async def set_admin_config(config_type: str, data: Any) -> None:
     """Upsert config data for the given config_type."""
     await admin_config_collection().update_one(
         {"type": config_type},
-        {"$set": {"type": config_type, "data": data, "updated_at": datetime.utcnow()}},
+        {"$set": {"type": config_type, "data": data, "updated_at": datetime.now(timezone.utc)}},
         upsert=True,
     )
