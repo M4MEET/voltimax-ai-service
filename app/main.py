@@ -27,7 +27,6 @@ async def lifespan(app: FastAPI):
     logger.info("MongoDB connected.")
 
     from app.tasks.purge import purge_old_sessions
-    import asyncio
 
     async def _daily_purge():
         while True:
@@ -38,7 +37,7 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error("Daily purge failed: %s", e)
 
-    asyncio.create_task(_daily_purge())
+    _purge_task = asyncio.create_task(_daily_purge())
     try:
         n = await purge_old_sessions()
         logger.info("Startup purge: removed %d old sessions", n)
@@ -48,6 +47,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # --- Shutdown ---
+    _purge_task.cancel()
     logger.info("Shutting down VoltimaxChat AI Service...")
     await close_db()
 

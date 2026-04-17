@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.db.collections import (
     analytics_events_collection,
@@ -12,7 +12,7 @@ from app.db.collections import (
 class AnalyticsAggregator:
 
     async def get_overview(self, days: int = 7) -> dict:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
 
         total = await sessions_collection().count_documents(
             {"created_at": {"$gte": since}}
@@ -47,7 +47,7 @@ class AnalyticsAggregator:
         }
 
     async def get_topic_breakdown(self, days: int = 7) -> list[dict]:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         pipeline = [
             {
                 "$match": {
@@ -70,7 +70,7 @@ class AnalyticsAggregator:
         return await sessions_collection().aggregate(pipeline).to_list(100)
 
     async def get_escalation_breakdown(self, days: int = 7) -> list[dict]:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         pipeline = [
             {
                 "$match": {
@@ -84,7 +84,7 @@ class AnalyticsAggregator:
         return await analytics_events_collection().aggregate(pipeline).to_list(100)
 
     async def get_cost_tracking(self, days: int = 30) -> dict:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         pipeline = [
             {"$match": {"created_at": {"$gte": since}}},
             {
@@ -139,7 +139,7 @@ class AnalyticsAggregator:
         return {"total": total, "sessions": sessions}
 
     async def get_feedback_stats(self, days: int = 7) -> dict:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         pipeline = [
             {"$match": {"event_type": "message_feedback", "created_at": {"$gte": since}}},
             {"$group": {"_id": "$feedback", "count": {"$sum": 1}}},
@@ -156,7 +156,7 @@ class AnalyticsAggregator:
         }
 
     async def get_rating_stats(self, days: int = 7) -> dict:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         pipeline = [
             {"$match": {"event_type": "session_rated", "created_at": {"$gte": since}}},
             {"$group": {
@@ -194,7 +194,7 @@ class AnalyticsAggregator:
         return {"session": session, "messages": msgs}
 
     async def get_performance(self, days: int = 7) -> dict:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
 
         # Avg response time and LLM latency by provider
         rt_pipeline = [

@@ -100,7 +100,7 @@ class ConnectionHandler:
 
                     # Content validation (prompt injection, length)
                     try:
-                        msg.message = rl.check_message_content(msg.message or "")
+                        msg.content = rl.check_message_content(msg.content or "")
                     except AbuseError as e:
                         await self._send_ws(websocket, OutgoingMessage(type="error", message=str(e)))
                         continue

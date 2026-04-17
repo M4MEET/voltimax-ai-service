@@ -88,6 +88,10 @@ class RateLimiter:
             "pretend you are",
             "system prompt:",
             "###instruction",
+            "you are now",
+            "act as if you are",
+            "[[human]]",
+            "[[assistant]]",
         ]
         for pattern in injection_patterns:
             if pattern in lower:

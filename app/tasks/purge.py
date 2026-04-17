@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.config import get_config
 from app.db.collections import analytics_events_collection, messages_collection, sessions_collection
@@ -16,7 +16,7 @@ async def purge_old_sessions() -> int:
     if retention <= 0:
         return 0
 
-    cutoff = datetime.utcnow() - timedelta(days=retention)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention)
     cursor = sessions_collection().find({"created_at": {"$lt": cutoff}}, {"id": 1, "_id": 0})
     old_sessions = await cursor.to_list(10000)
     if not old_sessions:

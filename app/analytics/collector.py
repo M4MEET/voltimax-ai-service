@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from app.db.collections import analytics_events_collection
@@ -14,7 +14,7 @@ async def track_event(
     """Record an analytics event to MongoDB."""
     doc: dict[str, Any] = {
         "event_type": event_type,
-        "created_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
     }
     if session_id:
         doc["session_id"] = session_id
