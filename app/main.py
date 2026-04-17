@@ -85,6 +85,9 @@ def create_app() -> FastAPI:
     app.include_router(analytics.router, tags=["analytics"])
     app.include_router(webhooks.router, tags=["webhooks"])
 
+    from app.api.routes import admin
+    app.include_router(admin.router, tags=["admin"])
+
     # Serve analytics dashboard static files
     import os
     dashboard_dir = os.path.join(os.path.dirname(__file__), "..", "dashboard")

@@ -68,7 +68,7 @@ class ConnectionHandler:
                     session_id = session.id
                     self.active_connections[session_id] = websocket
 
-                    topics = self._get_visible_topics(user_claims)
+                    topics = await self._get_visible_topics(user_claims)
                     await self._send_ws(
                         websocket,
                         OutgoingMessage(type="auth_success", session_id=session_id, topics=topics),
@@ -253,38 +253,60 @@ class ConnectionHandler:
         except Exception:
             pass  # Connection may be closed
 
-    def _get_visible_topics(self, user_claims: dict) -> list[dict]:
+    async def _get_visible_topics(self, user_claims: dict) -> list[dict]:
         """Filter topic cards based on customer context from JWT claims."""
+        from app.db.admin_config import get_admin_config
+        stored = await get_admin_config("topic_cards")
+        if stored is not None:
+            # Filter stored cards by visibility
+            has_orders = user_claims.get("has_orders", False)
+            is_b2b = user_claims.get("is_b2b", False)
+            visible = []
+            for card in stored:
+                if not self._is_visible(card.get("visibility", "always"), has_orders, is_b2b):
+                    continue
+                card_data = {
+                    "id": card.get("id", ""),
+                    "title": card.get("title", ""),
+                    "icon": card.get("icon", ""),
+                    "description": card.get("description", ""),
+                }
+                sub_cards = card.get("sub_cards", [])
+                if sub_cards:
+                    card_data["sub_cards"] = [
+                        {
+                            "id": sc.get("id", ""),
+                            "title": sc.get("title", ""),
+                            "icon": sc.get("icon", ""),
+                            "description": sc.get("description", ""),
+                        }
+                        for sc in sub_cards
+                        if self._is_visible(sc.get("visibility", "always"), has_orders, is_b2b)
+                    ]
+                visible.append(card_data)
+            return visible
+
+        # Fall back to config.yaml
         config = get_config()
         has_orders = user_claims.get("has_orders", False)
         is_b2b = user_claims.get("is_b2b", False)
         visible = []
-
         for card in config.topic_cards:
             if not self._is_visible(card.visibility, has_orders, is_b2b):
                 continue
-
             card_data: dict = {
                 "id": card.id,
                 "title": card.title,
                 "icon": card.icon,
                 "description": card.description,
             }
-
             if card.sub_cards:
                 card_data["sub_cards"] = [
-                    {
-                        "id": sc.id,
-                        "title": sc.title,
-                        "icon": sc.icon,
-                        "description": sc.description,
-                    }
+                    {"id": sc.id, "title": sc.title, "icon": sc.icon, "description": sc.description}
                     for sc in card.sub_cards
                     if self._is_visible(sc.visibility, has_orders, is_b2b)
                 ]
-
             visible.append(card_data)
-
         return visible
 
     def _is_visible(self, visibility: str, has_orders: bool, is_b2b: bool = False) -> bool:
