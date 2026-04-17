@@ -1,0 +1,109 @@
+from __future__ import annotations
+
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from app.config import load_config
+from app.db.mongodb import close_db, connect_db
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Startup ---
+    config = load_config()
+    logging.basicConfig(
+        level=logging.DEBUG if config.server.debug else logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+    logger.info("Starting VoltimaxChat AI Service...")
+    await connect_db()
+    logger.info("MongoDB connected.")
+
+    from app.tasks.purge import purge_old_sessions
+    import asyncio
+
+    async def _daily_purge():
+        while True:
+            await asyncio.sleep(86400)
+            try:
+                n = await purge_old_sessions()
+                logger.info("Daily purge: removed %d old sessions", n)
+            except Exception as e:
+                logger.error("Daily purge failed: %s", e)
+
+    asyncio.create_task(_daily_purge())
+    try:
+        n = await purge_old_sessions()
+        logger.info("Startup purge: removed %d old sessions", n)
+    except Exception as e:
+        logger.warning("Startup purge failed: %s", e)
+
+    yield
+
+    # --- Shutdown ---
+    logger.info("Shutting down VoltimaxChat AI Service...")
+    await close_db()
+
+
+def create_app() -> FastAPI:
+    config = load_config()
+
+    app = FastAPI(
+        title="VoltimaxChat AI Service",
+        description=(
+            "AI services platform for the VoltimaxChat widget. "
+            "Handles real-time chat via WebSocket/SSE, LLM routing, "
+            "knowledge base RAG, and escalation."
+        ),
+        version="1.0.0",
+        lifespan=lifespan,
+    )
+
+    # CORS — allow configured origins
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=config.server.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Import and register all routers
+    from app.api.routes import analytics, chat, health, knowledge, session, webhooks
+
+    app.include_router(health.router, tags=["health"])
+    app.include_router(chat.router, tags=["chat"])
+    app.include_router(session.router)
+    app.include_router(knowledge.router, tags=["knowledge"])
+    app.include_router(analytics.router, tags=["analytics"])
+    app.include_router(webhooks.router, tags=["webhooks"])
+
+    # Serve analytics dashboard static files
+    import os
+    dashboard_dir = os.path.join(os.path.dirname(__file__), "..", "dashboard")
+    if os.path.isdir(dashboard_dir):
+        app.mount("/dashboard", StaticFiles(directory=dashboard_dir, html=True), name="dashboard")
+
+    return app
+
+
+app = create_app()
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    cfg = load_config()
+    uvicorn.run(
+        "app.main:app",
+        host=cfg.server.host,
+        port=cfg.server.port,
+        reload=cfg.server.debug,
+    )

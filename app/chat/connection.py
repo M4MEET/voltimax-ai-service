@@ -7,6 +7,7 @@ import time as _time
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.api.middleware.jwt_auth import validate_jwt
+from app.api.middleware.rate_limiter import AbuseError, get_rate_limiter
 from app.chat.manager import ChatManager
 from app.chat.models import IncomingMessage, MessageRole, OutgoingMessage
 from app.analytics.collector import track_response_time as _track_rt
@@ -93,6 +94,23 @@ class ConnectionHandler:
 
                 elif msg.type == "message" and session_id and user_claims:
                     if not msg.content:
+                        continue
+
+                    rl = get_rate_limiter()
+
+                    # Content validation (prompt injection, length)
+                    try:
+                        msg.message = rl.check_message_content(msg.message or "")
+                    except AbuseError as e:
+                        await self._send_ws(websocket, OutgoingMessage(type="error", message=str(e)))
+                        continue
+
+                    # Rapid-fire check
+                    if not rl.check_rapid_fire(session_id):
+                        await self._send_ws(
+                            websocket,
+                            OutgoingMessage(type="error", message="Slow down — too many messages in a short time."),
+                        )
                         continue
 
                     # Store user message
