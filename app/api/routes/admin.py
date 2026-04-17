@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.api.deps import verify_dashboard_auth
@@ -138,8 +138,10 @@ async def knowledge_sync_cms() -> dict:
     """Trigger CMS sync into the knowledge base."""
     from app.knowledge.manager import KnowledgeManager  # lazy import
 
-    km = KnowledgeManager()
-    return await km.sync_cms()
+    try:
+        return await KnowledgeManager().sync_cms()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"CMS sync failed: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +170,7 @@ async def delete_customer_data(email: str) -> dict:
     )
 
     cursor = sessions_collection().find({"customer_email": email}, {"id": 1, "_id": 0})
-    session_docs = await cursor.to_list(10000)
+    session_docs = await cursor.to_list(None)
     session_ids = [s["id"] for s in session_docs if "id" in s]
 
     if session_ids:

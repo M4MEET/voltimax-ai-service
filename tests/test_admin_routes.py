@@ -111,3 +111,80 @@ def test_update_topics_returns_ok():
         assert mock_set.call_count == 2
     finally:
         cfg_module._config = None
+
+
+def test_auth_rejection_without_key():
+    """Requests without X-Dashboard-Key header should be rejected with 401."""
+    config = _make_config()
+    cfg_module._config = config
+
+    try:
+        with patch(
+            "app.api.routes.admin.get_admin_config",
+            new=AsyncMock(return_value=None),
+        ):
+            client = _make_test_client()
+            response = client.get("/api/admin/config/llm")  # no auth header
+
+        assert response.status_code == 401
+    finally:
+        cfg_module._config = None
+
+
+def test_auth_rejection_wrong_key():
+    """Requests with a wrong X-Dashboard-Key should be rejected with 401."""
+    config = _make_config()
+    cfg_module._config = config
+
+    try:
+        with patch(
+            "app.api.routes.admin.get_admin_config",
+            new=AsyncMock(return_value=None),
+        ):
+            client = _make_test_client()
+            response = client.get(
+                "/api/admin/config/llm",
+                headers={"X-Dashboard-Key": "wrong-key"},
+            )
+
+        assert response.status_code == 401
+    finally:
+        cfg_module._config = None
+
+
+def test_gdpr_delete_returns_deleted_sessions():
+    """DELETE /api/admin/customers/{email}/data — deletes sessions/messages/events,
+    returns deleted_sessions count."""
+    config = _make_config()
+    cfg_module._config = config
+
+    mock_sessions = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.to_list = AsyncMock(return_value=[{"id": "s1"}, {"id": "s2"}])
+    mock_sessions.return_value.find.return_value = mock_cursor
+    mock_sessions.return_value.delete_many = AsyncMock()
+
+    mock_messages = MagicMock()
+    mock_messages.return_value.delete_many = AsyncMock()
+
+    mock_events = MagicMock()
+    mock_events.return_value.delete_many = AsyncMock()
+
+    try:
+        with (
+            patch("app.db.collections.sessions_collection", mock_sessions),
+            patch("app.db.collections.messages_collection", mock_messages),
+            patch("app.db.collections.analytics_events_collection", mock_events),
+        ):
+            client = _make_test_client()
+            response = client.delete(
+                "/api/admin/customers/test@example.com/data",
+                headers={"X-Dashboard-Key": DASHBOARD_KEY},
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert "deleted_sessions" in body
+        assert body["deleted_sessions"] == 2
+    finally:
+        cfg_module._config = None
