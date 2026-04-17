@@ -57,8 +57,11 @@ async def get_live_llm_provider(topic_id: str | None) -> str:
     Checks MongoDB-stored routing first, falls back to config.yaml.
     """
     config = get_config()
-    from app.db.admin_config import get_admin_config
-    routing = await get_admin_config("topic_routing")
+    try:
+        from app.db.admin_config import get_admin_config
+        routing = await get_admin_config("topic_routing")
+    except Exception:
+        routing = None
     if routing and topic_id and topic_id in routing:
         return routing[topic_id]
     if topic_id and topic_id in config.topic_routing:
@@ -73,8 +76,11 @@ async def get_live_llm_config(provider_name: str) -> dict:
     Returns {} if provider not found.
     """
     config = get_config()
-    from app.db.admin_config import get_admin_config
-    stored_providers = await get_admin_config("llm_providers")
+    try:
+        from app.db.admin_config import get_admin_config
+        stored_providers = await get_admin_config("llm_providers")
+    except Exception:
+        stored_providers = None
     if stored_providers and provider_name in stored_providers:
         p = stored_providers[provider_name]
         if p.get("enabled", True) and p.get("api_key"):

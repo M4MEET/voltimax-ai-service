@@ -13,6 +13,7 @@ from app.chat.models import IncomingMessage, MessageRole, OutgoingMessage
 from app.analytics.collector import track_response_time as _track_rt
 from app.analytics.collector import track_session_end as _track_end
 from app.config import get_config
+from app.ai.router import get_live_llm_provider
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ class ConnectionHandler:
 
                 elif msg.type == "select_topic" and session_id:
                     topic_id = msg.topic_id or "others"
-                    llm_provider = self._get_provider_for_topic(topic_id)
+                    llm_provider = await self._get_provider_for_topic(topic_id)
                     await self.chat_manager.set_topic(session_id, topic_id, llm_provider)
 
                     greeting = self._get_topic_greeting(topic_id, language)
@@ -256,7 +257,11 @@ class ConnectionHandler:
     async def _get_visible_topics(self, user_claims: dict) -> list[dict]:
         """Filter topic cards based on customer context from JWT claims."""
         from app.db.admin_config import get_admin_config
-        stored = await get_admin_config("topic_cards")
+        try:
+            stored = await get_admin_config("topic_cards")
+        except Exception:
+            logger.warning("Failed to load topic_cards from MongoDB, using config fallback", exc_info=True)
+            stored = None
         if stored is not None:
             # Filter stored cards by visibility
             has_orders = user_claims.get("has_orders", False)
@@ -318,11 +323,8 @@ class ConnectionHandler:
             return is_b2b
         return True
 
-    def _get_provider_for_topic(self, topic_id: str) -> str:
-        config = get_config()
-        return config.topic_routing.get(
-            topic_id, config.topic_routing.get("fallback", "openai")
-        )
+    async def _get_provider_for_topic(self, topic_id: str) -> str:
+        return await get_live_llm_provider(topic_id)
 
     def _get_topic_greeting(self, topic_id: str, language: str = "de") -> str:
         greetings: dict[str, dict[str, str]] = {
