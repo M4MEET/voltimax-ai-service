@@ -133,7 +133,7 @@ async function adminFetch(method, path, body) {
     const res = await fetch(API + path, opts);
     if (res.status === 401) throw new Error('Unauthorized');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+    return res.status === 204 ? null : res.json();
 }
 
 /* ── Auto-refresh ────────────────────────────────────────────────────────── */
@@ -224,6 +224,7 @@ function loadSection(name) {
         s.classList.remove('section--visible');
     });
     const target = document.getElementById('section-' + name);
+    if (!target) { console.error('Unknown section:', name); return; }
     target.classList.remove('hidden');
     // Trigger fade-in on next frame so the class swap is painted first
     requestAnimationFrame(() => target.classList.add('section--visible'));
@@ -1095,7 +1096,7 @@ function renderTopicsConfig() {
             inp.className = 'cfg-input';
             inp.placeholder = placeholder;
             inp.value = topic[field] || '';
-            inp.addEventListener('input', () => { topic[field] = inp.value; hdr.textContent = (topicsData[ti].icon || '💬') + ' ' + (topicsData[ti].title || 'Untitled'); hdr.appendChild(del); });
+            inp.addEventListener('input', () => { topic[field] = inp.value; hdr.textContent = (topic.icon || '💬') + ' ' + (topic.title || 'Untitled'); hdr.appendChild(del); });
             row.append(lbl, inp);
             fields.appendChild(row);
         });
