@@ -26,3 +26,4 @@ async def test_track_session_end_stores_event():
     doc = mock_coll.insert_one.call_args[0][0]
     assert doc["event_type"] == "session_end"
     assert doc["duration_seconds"] == 120
+    assert doc["message_count"] == 8
