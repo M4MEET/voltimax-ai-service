@@ -118,6 +118,7 @@ class ConnectionHandler:
                     await self.chat_manager.add_message(
                         session_id, MessageRole.USER, msg.content
                     )
+                    await self._send_ws(websocket, OutgoingMessage(type="play_sound", message="outgoing"))
 
                     # Send typing indicator
                     await self._send_ws(websocket, OutgoingMessage(type="typing"))
@@ -187,8 +188,10 @@ class ConnectionHandler:
                             websocket,
                             OutgoingMessage(type="stream_end", message_id=ai_msg.id),
                         )
+                        await self._send_ws(websocket, OutgoingMessage(type="play_sound", message="incoming"))
                     elif not escalated:
                         await self._send_ws(websocket, OutgoingMessage(type="stream_end"))
+                        await self._send_ws(websocket, OutgoingMessage(type="play_sound", message="incoming"))
 
                 elif msg.type == "not_helpful" and session_id:
                     await self.chat_manager.escalate_session(session_id, "user_not_helpful")
