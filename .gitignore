@@ -1,0 +1,84 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# Distribution / packaging
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.coveragerc
+
+# MyPy / type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# Environment files (NEVER commit)
+.env
+.env.local
+.env.*.local
+
+# Config with real secrets (NEVER commit)
+config.yaml
+config.local.yaml
+
+# Knowledge base uploads (user data)
+knowledge_files/
+
+# Static form PDFs (uploaded by admin, not source code)
+static/forms/*.pdf
+
+# Dashboard build output (generated)
+dashboard-build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Node.js (dashboard)
+node_modules/
+dashboard/dist/
+dashboard/.vite/
+dashboard-react/dist/
+dashboard-react/node_modules/
+
+# LangGraph local state
+.langgraph_api/
+
+# Claude memory (developer-specific)
+.claude/
+CLAUDE.md
