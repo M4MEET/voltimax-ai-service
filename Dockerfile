@@ -4,7 +4,7 @@
 # ============================================================
 
 # ── Stage 1: Build React Dashboard ──────────────────────────
-FROM node:18-slim AS dashboard-builder
+FROM node:22-slim AS dashboard-builder
 WORKDIR /build
 COPY dashboard-react/package*.json ./
 RUN npm ci --production=false
