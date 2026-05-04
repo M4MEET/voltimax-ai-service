@@ -210,4 +210,4 @@ docs/                  # Architecture documentation
 
 ## License
 
-Proprietary - Battron GmbH
+Proprietary - Meet Joshi
