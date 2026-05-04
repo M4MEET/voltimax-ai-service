@@ -9,7 +9,9 @@ services:
       - CONFIG_PATH=/app/config.yaml
     volumes:
       - ./config.yaml:/app/config.yaml:ro
+      - ./.env:/app/.env:ro
       - ./knowledge_files:/app/knowledge_files
+      - ./static/forms:/app/static/forms
     depends_on:
       mongo:
         condition: service_healthy
@@ -22,7 +24,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - mongo_data:/data/db
+      - ./data/mongo:/data/db
     restart: unless-stopped
     networks:
       - voltimax
@@ -48,7 +50,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - n8n_data:/home/node/.n8n
+      - ./data/n8n:/home/node/.n8n
       - ./n8n/workflows:/home/node/workflows
     restart: unless-stopped
     networks:
@@ -73,6 +75,4 @@ networks:
   voltimax:
     driver: bridge
 
-volumes:
-  mongo_data:
-  n8n_data:
+# All data stored in ./data/ via bind mounts for easy backup
