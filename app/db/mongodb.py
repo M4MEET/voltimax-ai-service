@@ -67,3 +67,9 @@ async def _ensure_indexes() -> None:
 
     # Admin config collection
     await db["admin_config"].create_index("type", unique=True)
+
+    # Logs collection — TTL: auto-delete after 30 days
+    logs = db["logs"]
+    await logs.create_index("timestamp", expireAfterSeconds=30 * 86400, name="timestamp_ttl")
+    await logs.create_index("level")
+    await logs.create_index([("timestamp", -1), ("level", 1)])

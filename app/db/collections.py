@@ -27,3 +27,7 @@ def qa_pairs_collection():
 
 def admin_config_collection():
     return get_db()["admin_config"]
+
+
+def logs_collection():
+    return get_db()["logs"]

@@ -22,11 +22,45 @@ async def lifespan(app: FastAPI):
         level=logging.DEBUG if config.server.debug else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
+    # Load .env file for local development
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    # Enable LangSmith tracing — env vars from .env are authoritative
+    if os.getenv("LANGCHAIN_API_KEY") or os.getenv("LANGSMITH_API_KEY"):
+        os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")
+        os.environ.setdefault("LANGSMITH_TRACING", "true")
+        os.environ.setdefault("LANGCHAIN_PROJECT", "VoltimaxChat-Groot")
+        # Don't override LANGCHAIN_ENDPOINT — .env already sets it to EU
+        project = os.getenv("LANGCHAIN_PROJECT", "VoltimaxChat-Groot")
+        endpoint = os.getenv("LANGCHAIN_ENDPOINT", "?")
+        logger.info(f"LangSmith tracing enabled (project: {project}, endpoint: {endpoint})")
+    else:
+        logger.info("LangSmith tracing disabled (no API key set)")
+
     logger.info("Starting VoltimaxChat AI Service...")
     await connect_db()
     logger.info("MongoDB connected.")
 
+    # Attach MongoDB log handler (persists WARNING+ to the logs collection)
+    from app.logging_handler import MongoLogHandler
+    mongo_handler = MongoLogHandler()
+    mongo_handler.setLevel(logging.INFO)
+    logging.getLogger().addHandler(mongo_handler)
+
     from app.tasks.purge import purge_old_sessions
+    from app.logging_handler import flush_logs as _flush_logs
+
+    async def _periodic_log_flush():
+        while True:
+            await asyncio.sleep(10)
+            try:
+                await _flush_logs()
+            except Exception:
+                pass
+
+    _log_flush_task = asyncio.create_task(_periodic_log_flush())
 
     async def _daily_purge():
         while True:
@@ -47,8 +81,11 @@ async def lifespan(app: FastAPI):
     yield
 
     # --- Shutdown ---
+    _log_flush_task.cancel()
     _purge_task.cancel()
     logger.info("Shutting down VoltimaxChat AI Service...")
+    from app.logging_handler import flush_logs
+    await flush_logs()
     await close_db()
 
 
@@ -88,11 +125,16 @@ def create_app() -> FastAPI:
     from app.api.routes import admin
     app.include_router(admin.router, tags=["admin"])
 
-    # Serve analytics dashboard static files
+    # Serve React dashboard build
     import os
-    dashboard_dir = os.path.join(os.path.dirname(__file__), "..", "dashboard")
+    dashboard_dir = os.path.join(os.path.dirname(__file__), "..", "dashboard-build")
     if os.path.isdir(dashboard_dir):
         app.mount("/dashboard", StaticFiles(directory=dashboard_dir, html=True), name="dashboard")
+
+    # Serve static forms (Batteriepfand PDFs, etc.)
+    static_forms_dir = os.path.join(os.path.dirname(__file__), "..", "static", "forms")
+    if os.path.isdir(static_forms_dir):
+        app.mount("/static/forms", StaticFiles(directory=static_forms_dir), name="static-forms")
 
     return app
 

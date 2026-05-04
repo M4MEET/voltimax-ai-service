@@ -1,0 +1,7 @@
+{
+  "graphs": {
+    "groot": "./app/ai/graph/studio.py:graph"
+  },
+  "env": ".env",
+  "dependencies": ["."]
+}

@@ -23,9 +23,9 @@ def get_provider(name: str) -> BaseLLMProvider:
     if name == "openai":
         from app.ai.providers.openai_provider import OpenAIProvider
         provider: BaseLLMProvider = OpenAIProvider()
-    elif name == "anthropic":
+    elif name in ("anthropic", "anthropic-sonnet"):
         from app.ai.providers.anthropic_provider import AnthropicProvider
-        provider = AnthropicProvider()
+        provider = AnthropicProvider(provider_name=name)
     elif name == "google":
         from app.ai.providers.google_provider import GoogleProvider
         provider = GoogleProvider()
@@ -49,6 +49,12 @@ def get_provider_for_topic(topic_id: str) -> BaseLLMProvider:
         topic_id, config.topic_routing.get("fallback", "openai")
     )
     return get_provider(provider_name)
+
+
+def get_default_provider() -> str:
+    """Return the default/fallback LLM provider name from config."""
+    config = get_config()
+    return config.topic_routing.get("fallback", "openai")
 
 
 async def get_live_llm_provider(topic_id: str | None) -> str:

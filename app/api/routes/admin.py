@@ -191,3 +191,193 @@ async def manual_purge() -> dict:
     """Manually trigger the old-session purge task."""
     count = await purge_old_sessions()
     return {"deleted": count}
+
+
+@router.post("/prompts/refresh")
+async def refresh_prompts() -> dict:
+    """Invalidate the prompt cache so LangSmith changes take effect immediately."""
+    from app.ai.prompt_hub import invalidate_cache
+    invalidate_cache()
+    return {"status": "ok", "message": "Prompt cache cleared. Next request will pull fresh from LangSmith."}
+
+
+# ---------------------------------------------------------------------------
+# Agents
+# ---------------------------------------------------------------------------
+
+
+@router.get("/agents")
+async def get_agents() -> list:
+    """List all agent configurations."""
+    from app.ai.agents import AGENTS
+
+    return [
+        {"id": topic_id, **{k: v for k, v in agent.items()}}
+        for topic_id, agent in AGENTS.items()
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Prompts (LangSmith)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/prompts")
+async def get_prompts() -> dict:
+    """List all LangSmith prompts with cache status."""
+    import os
+
+    from app.ai.prompt_hub import _cache, _pull_raw
+
+    prompts = [
+        {"name": "groot-system-prompt", "type": "mustache", "used_by": "Response Generator"},
+        {"name": "groot-intent-classifier", "type": "plain", "used_by": "Intent Classifier"},
+        {"name": "groot-escalation-detector", "type": "plain", "used_by": "Escalation Detector"},
+        {"name": "groot-summarizer", "type": "plain", "used_by": "Summarizer"},
+        {"name": "groot-card-router", "type": "mustache", "used_by": "Card Router"},
+        {"name": "groot-pre-classifier", "type": "mustache", "used_by": "Pre-classifier"},
+        {"name": "groot-greeting", "type": "mustache", "used_by": "Greeting Generator"},
+    ]
+    endpoint = os.getenv("LANGCHAIN_ENDPOINT", "https://eu.api.smith.langchain.com")
+    enabled = bool(os.getenv("LANGCHAIN_API_KEY"))
+
+    for p in prompts:
+        cached = p["name"] in _cache
+        p["cached"] = cached
+        p["status"] = "cached" if cached else "available"
+
+    return {"prompts": prompts, "endpoint": endpoint, "enabled": enabled}
+
+
+# ---------------------------------------------------------------------------
+# Active WebSocket connections
+# ---------------------------------------------------------------------------
+
+
+@router.get("/active-connections")
+async def get_active_connections() -> dict:
+    """Return the current number of active WebSocket connections."""
+    from app.chat.connection import get_connection_handler
+
+    handler = get_connection_handler()
+    count = len(handler.active_connections)
+    return {"active": count}
+
+
+# ---------------------------------------------------------------------------
+# Zendesk Tickets (created by Groot)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/tickets")
+async def get_recent_tickets(limit: int = Query(20, ge=1, le=100)) -> dict:
+    """Return recent sessions where a Zendesk ticket was created."""
+    from app.db.collections import sessions_collection
+
+    cursor = (
+        sessions_collection()
+        .find(
+            {"escalation_reason": "ticket_created"},
+            {
+                "_id": 0,
+                "id": 1,
+                "customer_name": 1,
+                "customer_email": 1,
+                "topic_id": 1,
+                "order_number": 1,
+                "created_at": 1,
+                "events": 1,
+            },
+        )
+        .sort("created_at", -1)
+        .limit(limit)
+    )
+    sessions = await cursor.to_list(length=limit)
+
+    tickets = []
+    for s in sessions:
+        ticket_id = ""
+        for ev in s.get("events") or []:
+            if ev.get("type") == "ticket_created":
+                detail = ev.get("detail", "")
+                if "#" in detail:
+                    ticket_id = detail.split("#")[1].split(" ")[0].split("\u2014")[0].strip()
+                break
+        tickets.append(
+            {
+                "session_id": s.get("id", ""),
+                "customer_name": s.get("customer_name", ""),
+                "customer_email": s.get("customer_email", ""),
+                "topic_id": s.get("topic_id", ""),
+                "order_number": s.get("order_number", ""),
+                "ticket_id": ticket_id,
+                "created_at": str(s.get("created_at", "")),
+            }
+        )
+
+    return {"tickets": tickets, "total": len(tickets)}
+
+
+# ---------------------------------------------------------------------------
+# Test Agent
+# ---------------------------------------------------------------------------
+
+
+class TestAgentRequest(BaseModel):
+    agent_id: str
+    message: str
+
+
+@router.post("/test-agent")
+async def test_agent(body: TestAgentRequest) -> dict:
+    """Send a sample message to an agent and return the response."""
+    from app.ai.agents import get_agent_system_prefix
+    from app.ai.router import get_default_provider, get_provider
+
+    prefix = get_agent_system_prefix(body.agent_id)
+    provider = get_provider(get_default_provider())
+    response = await provider.generate(
+        [{"role": "user", "content": body.message}],
+        system_prompt=prefix,
+        temperature=0.7,
+        max_tokens=200,
+    )
+    return {"agent_id": body.agent_id, "response": response}
+
+
+# ---------------------------------------------------------------------------
+# Re-embed knowledge vectors
+# ---------------------------------------------------------------------------
+
+
+@router.post("/reembed")
+async def trigger_reembed() -> dict:
+    """Re-embed all knowledge vectors using the current embedding model."""
+    from app.config import get_config as _get_config
+    from app.db.collections import knowledge_vectors_collection
+    from app.knowledge.embedder import get_embeddings
+
+    coll = knowledge_vectors_collection()
+    embeddings = get_embeddings()
+    config = _get_config()
+
+    docs = await coll.find({}, {"_id": 1, "content": 1}).to_list(length=10000)
+    if not docs:
+        return {"status": "no_documents", "count": 0}
+
+    # Re-embed in batches
+    batch_size = 50
+    done = 0
+    for i in range(0, len(docs), batch_size):
+        batch = docs[i : i + batch_size]
+        texts = [d["content"] for d in batch]
+        vectors = await embeddings.aembed_documents(texts)
+        for doc, vector in zip(batch, vectors):
+            await coll.update_one({"_id": doc["_id"]}, {"$set": {"embedding": vector}})
+        done += len(batch)
+
+    return {
+        "status": "completed",
+        "count": done,
+        "model": config.knowledge_base.embedding_model,
+    }

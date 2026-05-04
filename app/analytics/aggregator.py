@@ -36,6 +36,24 @@ class AnalyticsAggregator:
         escalation_rate = (escalated / total * 100) if total > 0 else 0.0
         resolution_rate = ((total - escalated) / total * 100) if total > 0 else 0.0
 
+        # Close reason breakdown
+        close_pipeline = [
+            {"$match": {"created_at": {"$gte": since}, "close_reason": {"$ne": None}}},
+            {"$group": {"_id": "$close_reason", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+        ]
+        close_reasons = {
+            doc["_id"]: doc["count"]
+            async for doc in sessions_collection().aggregate(close_pipeline)
+        }
+
+        # Semantic cache stats
+        try:
+            from app.ai.semantic_cache import get_semantic_cache
+            cache_stats = get_semantic_cache().stats()
+        except Exception:
+            cache_stats = {}
+
         return {
             "total_chats": total,
             "active_now": active,
@@ -44,6 +62,8 @@ class AnalyticsAggregator:
             "token_usage": tokens,
             "ai_resolution_rate": round(resolution_rate, 1),
             "period_days": days,
+            "close_reasons": close_reasons,
+            "semantic_cache": cache_stats,
         }
 
     async def get_topic_breakdown(self, days: int = 7) -> list[dict]:
@@ -120,11 +140,17 @@ class AnalyticsAggregator:
         return {"providers": result, "period_days": days}
 
     async def get_conversations(
-        self, skip: int = 0, limit: int = 20, topic: str | None = None
+        self, skip: int = 0, limit: int = 20, topic: str | None = None, search: str | None = None
     ) -> dict:
         query: dict = {}
         if topic:
             query["topic_id"] = topic
+        if search:
+            query["$or"] = [
+                {"customer_name": {"$regex": search, "$options": "i"}},
+                {"customer_email": {"$regex": search, "$options": "i"}},
+                {"topic_id": {"$regex": search, "$options": "i"}},
+            ]
 
         total = await sessions_collection().count_documents(query)
         sessions = await (
@@ -191,7 +217,126 @@ class AnalyticsAggregator:
             .to_list(1000)
         )
 
+        # Enrich session with events and topic_tags for the dashboard
+        if session:
+            if "events" not in session:
+                session["events"] = []
+            if "topic_tags" not in session:
+                session["topic_tags"] = []
+
         return {"session": session, "messages": msgs}
+
+    def _fill_dates(self, data: list[dict], days: int, group: str) -> list[dict]:
+        """Fill in missing dates with zero values so charts show continuous timelines."""
+        if group == "monthly":
+            return data  # Monthly doesn't need gap-filling
+
+        lookup = {d["_id"]: d["value"] for d in data}
+        now = datetime.now(timezone.utc)
+        filled = []
+        for i in range(days):
+            date_str = (now - timedelta(days=days - 1 - i)).strftime("%Y-%m-%d")
+            filled.append({"_id": date_str, "value": lookup.get(date_str, 0)})
+        return filled
+
+    async def _query_metric(self, metric: str, since: datetime, date_group: dict, date_format: str) -> list[dict]:
+        """Run the aggregation for a single metric."""
+        if metric == "chats":
+            pipeline = [
+                {"$match": {"created_at": {"$gte": since}}},
+                {"$group": {"_id": date_group, "value": {"$sum": 1}}},
+                {"$sort": {"_id": 1}},
+            ]
+            return await sessions_collection().aggregate(pipeline).to_list(400)
+
+        elif metric == "escalations":
+            pipeline = [
+                {"$match": {"created_at": {"$gte": since}, "status": "escalated"}},
+                {"$group": {"_id": date_group, "value": {"$sum": 1}}},
+                {"$sort": {"_id": 1}},
+            ]
+            return await sessions_collection().aggregate(pipeline).to_list(400)
+
+        elif metric == "tickets":
+            pipeline = [
+                {"$match": {"event_type": "escalation", "created_at": {"$gte": since}}},
+                {"$group": {"_id": {"$dateToString": {"format": date_format, "date": "$created_at"}}, "value": {"$sum": 1}}},
+                {"$sort": {"_id": 1}},
+            ]
+            return await analytics_events_collection().aggregate(pipeline).to_list(400)
+
+        elif metric == "tokens":
+            pipeline = [
+                {"$match": {"created_at": {"$gte": since}}},
+                {"$group": {"_id": date_group, "value": {"$sum": "$total_tokens"}}},
+                {"$sort": {"_id": 1}},
+            ]
+            return await sessions_collection().aggregate(pipeline).to_list(400)
+
+        elif metric == "resolution":
+            pipeline = [
+                {"$match": {"created_at": {"$gte": since}}},
+                {"$group": {
+                    "_id": date_group,
+                    "total": {"$sum": 1},
+                    "escalated": {"$sum": {"$cond": [{"$eq": ["$status", "escalated"]}, 1, 0]}},
+                }},
+                {"$sort": {"_id": 1}},
+            ]
+            raw = await sessions_collection().aggregate(pipeline).to_list(400)
+            return [{"_id": r["_id"], "value": round(((r["total"] - r["escalated"]) / r["total"]) * 100, 1) if r["total"] > 0 else 0} for r in raw]
+
+        elif metric == "response_time":
+            pipeline = [
+                {"$match": {"event_type": "response_time", "created_at": {"$gte": since}}},
+                {"$group": {"_id": {"$dateToString": {"format": date_format, "date": "$created_at"}}, "value": {"$avg": "$data.duration_ms"}}},
+                {"$sort": {"_id": 1}},
+            ]
+            raw = await analytics_events_collection().aggregate(pipeline).to_list(400)
+            return [{"_id": d["_id"], "value": round(d["value"] or 0)} for d in raw]
+
+        return []
+
+    async def get_timeseries(self, metric: str, days: int = 30, group: str = "daily") -> dict:
+        """Return time-series data points for a metric, with zero-filled gaps."""
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+
+        if group == "monthly":
+            date_format = "%Y-%m"
+            date_group = {"$dateToString": {"format": "%Y-%m", "date": "$created_at"}}
+        else:
+            date_format = "%Y-%m-%d"
+            date_group = {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}}
+
+        data = await self._query_metric(metric, since, date_group, date_format)
+        filled = self._fill_dates(data, days, group)
+
+        return {
+            "metric": metric,
+            "group": group,
+            "days": days,
+            "data": [{"date": d["_id"], "value": d["value"]} for d in filled],
+        }
+
+    async def get_combined_timeseries(self, days: int = 30, group: str = "daily") -> dict:
+        """Return all metrics in one call for the combined overview chart."""
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+
+        if group == "monthly":
+            date_format = "%Y-%m"
+            date_group = {"$dateToString": {"format": "%Y-%m", "date": "$created_at"}}
+        else:
+            date_format = "%Y-%m-%d"
+            date_group = {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}}
+
+        metrics = ["chats", "escalations", "tickets", "tokens", "resolution", "response_time"]
+        result = {}
+        for m in metrics:
+            raw = await self._query_metric(m, since, date_group, date_format)
+            filled = self._fill_dates(raw, days, group)
+            result[m] = [{"date": d["_id"], "value": d["value"]} for d in filled]
+
+        return {"days": days, "group": group, "metrics": result}
 
     async def get_performance(self, days: int = 7) -> dict:
         since = datetime.now(timezone.utc) - timedelta(days=days)
