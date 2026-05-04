@@ -39,10 +39,10 @@ services:
     environment:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-changeme}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:?Set N8N_PASSWORD in .env}
       - WEBHOOK_URL=http://localhost:5678
       - VOLTIMAX_AI_URL=http://host.docker.internal:8000
-      - VOLTIMAX_API_KEY=${VOLTIMAX_DASHBOARD_KEY:-changeme}
+      - VOLTIMAX_API_KEY=${VOLTIMAX_DASHBOARD_KEY:?Set VOLTIMAX_DASHBOARD_KEY in .env}
       - GENERIC_TIMEZONE=Europe/Berlin
       - N8N_DIAGNOSTICS_ENABLED=false
     extra_hosts:
@@ -61,7 +61,7 @@ services:
     environment:
       - ME_CONFIG_MONGODB_URL=mongodb://mongo:27017/?directConnection=true
       - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=voltimax
+      - ME_CONFIG_BASICAUTH_PASSWORD=${MONGO_EXPRESS_PASSWORD:?Set MONGO_EXPRESS_PASSWORD in .env}
     depends_on:
       mongo:
         condition: service_healthy

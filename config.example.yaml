@@ -18,9 +18,9 @@ server:
 # ── Shopware 6 Connection ───────────────────────────────────
 shopware:
   server_a_url: "https://your-shop.com"
-  api_key: "YOUR_SHOPWARE_ADMIN_API_KEY"
-  integration_secret: "YOUR_SHOPWARE_INTEGRATION_SECRET"
-  store_api_key: "YOUR_SHOPWARE_STORE_API_KEY"       # Store API sw-access-key
+  api_key: "<your-shopware-admin-api-key>"
+  integration_secret: "<your-shopware-integration-secret>"
+  store_api_key: "<your-shopware-store-api-key>"      # Store API sw-access-key
   timeout: 10
   verify_ssl: true                                    # Set false for Docker self-signed certs
 
@@ -31,19 +31,19 @@ mongodb:
 
 # ── JWT (must match Shopware plugin secret) ─────────────────
 jwt:
-  secret: "your-jwt-secret-minimum-32-characters-long!"
+  secret: "<your-jwt-secret-min-32-chars>"
   algorithm: "HS256"
 
 # ── LLM Providers ──────────────────────────────────────────
 llm_providers:
   openai:
-    api_key: "sk-proj-YOUR_OPENAI_KEY"
+    api_key: "<your-openai-api-key>"
     default_model: "gpt-4.1"
   anthropic:
-    api_key: "sk-ant-api03-YOUR_ANTHROPIC_KEY"
+    api_key: "<your-anthropic-api-key>"
     default_model: "claude-haiku-4-5-20251001"
   anthropic-sonnet:                                   # Smart routing: used for complex queries
-    api_key: "sk-ant-api03-YOUR_ANTHROPIC_KEY"        # Same key, different model
+    api_key: "<your-anthropic-api-key>"               # Same key, different model
     default_model: "claude-sonnet-4-6"
 
 # ── Topic Routing (which LLM handles which topic) ──────────
@@ -69,7 +69,7 @@ escalation:
   zendesk:
     subdomain: "yourcompany"                          # → yourcompany.zendesk.com
     email: "agent@yourcompany.com"                    # Zendesk agent email
-    api_token: "YOUR_ZENDESK_API_TOKEN"
+    api_token: "<your-zendesk-api-token>"
   support_email: "support@yourcompany.com"            # Receives escalation alerts
   n8n:
     enabled: false
