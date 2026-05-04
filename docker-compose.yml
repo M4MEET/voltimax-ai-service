@@ -18,11 +18,12 @@ services:
       - voltimax
 
   mongo:
-    image: mongo:7
+    image: mongodb/mongodb-atlas-local:latest
     ports:
       - "127.0.0.1:27017:27017"
     volumes:
       - ./data/mongo:/data/db
+      - mongo_configdb:/data/configdb
     restart: unless-stopped
     networks:
       - voltimax
@@ -31,6 +32,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   n8n:
     image: n8nio/n8n
@@ -71,4 +73,8 @@ networks:
   voltimax:
     driver: bridge
 
-# All data stored in ./data/ via bind mounts for easy backup
+volumes:
+  mongo_configdb:    # Docker-managed volume for MongoDB keyfiles (avoids permission issues)
+
+# App data stored in ./data/ via bind mounts for easy backup
+# MongoDB configdb uses a Docker volume (keyfile permissions require it)
