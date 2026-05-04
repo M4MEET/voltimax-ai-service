@@ -1,0 +1,103 @@
+# ============================================================
+# VoltimaxChat AI Service — Configuration
+# ============================================================
+# Copy this file to config.yaml and fill in your values:
+#   cp config.example.yaml config.yaml
+#
+# NEVER commit config.yaml to git — it contains API keys.
+# ============================================================
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins:
+    - "http://localhost"
+    - "https://your-shop.com"
+  debug: false
+
+# ── Shopware 6 Connection ───────────────────────────────────
+shopware:
+  server_a_url: "https://your-shop.com"
+  api_key: "YOUR_SHOPWARE_ADMIN_API_KEY"
+  integration_secret: "YOUR_SHOPWARE_INTEGRATION_SECRET"
+  store_api_key: "YOUR_SHOPWARE_STORE_API_KEY"       # Store API sw-access-key
+  timeout: 10
+  verify_ssl: true                                    # Set false for Docker self-signed certs
+
+# ── MongoDB ─────────────────────────────────────────────────
+mongodb:
+  uri: "mongodb://localhost:27017"
+  database: "voltimax_chat"
+
+# ── JWT (must match Shopware plugin secret) ─────────────────
+jwt:
+  secret: "your-jwt-secret-minimum-32-characters-long!"
+  algorithm: "HS256"
+
+# ── LLM Providers ──────────────────────────────────────────
+llm_providers:
+  openai:
+    api_key: "sk-proj-YOUR_OPENAI_KEY"
+    default_model: "gpt-4.1"
+  anthropic:
+    api_key: "sk-ant-api03-YOUR_ANTHROPIC_KEY"
+    default_model: "claude-haiku-4-5-20251001"
+  anthropic-sonnet:                                   # Smart routing: used for complex queries
+    api_key: "sk-ant-api03-YOUR_ANTHROPIC_KEY"        # Same key, different model
+    default_model: "claude-sonnet-4-6"
+
+# ── Topic Routing (which LLM handles which topic) ──────────
+topic_routing:
+  order_status: "anthropic"
+  order_issue: "anthropic"
+  returns: "anthropic"
+  product_help: "anthropic"
+  general: "anthropic"
+  fallback: "anthropic"
+
+# ── Knowledge Base & RAG ────────────────────────────────────
+knowledge_base:
+  embedding_provider: "openai"
+  embedding_model: "text-embedding-3-large"           # 3072 dimensions
+  chunk_size: 512
+  chunk_overlap: 100                                  # Overlap for better retrieval
+
+# ── Escalation & Ticketing ──────────────────────────────────
+escalation:
+  ai_detection_enabled: true
+  frustration_threshold: 0.75
+  zendesk:
+    subdomain: "yourcompany"                          # → yourcompany.zendesk.com
+    email: "agent@yourcompany.com"                    # Zendesk agent email
+    api_token: "YOUR_ZENDESK_API_TOKEN"
+  support_email: "support@yourcompany.com"            # Receives escalation alerts
+  n8n:
+    enabled: false
+    base_url: "http://n8n:5678"
+    webhook_paths:
+      ticket: "/webhook/voltimax-ticket"
+  smtp:                                               # For email notifications
+    host: "smtp.gmail.com"
+    port: 587
+    username: ""                                      # Gmail or SMTP username
+    password: ""                                      # App Password (not regular password)
+    from_email: "noreply@yourcompany.com"
+    from_name: "Voltimax Support"
+    use_tls: true
+
+# ── Rate Limiting ───────────────────────────────────────────
+rate_limiting:
+  max_messages_per_session: 50
+  max_messages_per_minute: 10
+  daily_token_cap: 1000000
+  abuse_detection: true
+
+# ── WebSocket ───────────────────────────────────────────────
+websocket:
+  ping_interval: 30
+  sse_fallback: true
+  max_connections: 1000
+
+# ── Analytics ───────────────────────────────────────────────
+analytics:
+  retention_days: 90
