@@ -32,7 +32,7 @@ COPY static/ static/
 COPY docs/ docs/
 
 # Dashboard build from stage 1
-COPY --from=dashboard-builder /build/dist/ dashboard-build/
+COPY --from=dashboard-builder /dashboard-build/ dashboard-build/
 
 # Create directories
 RUN mkdir -p knowledge_files static/forms
