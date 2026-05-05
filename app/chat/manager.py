@@ -100,7 +100,7 @@ class ChatManager:
 
         return message
 
-    async def get_session_messages(self, session_id: str, limit: int = 50) -> list[dict]:
+    async def get_session_messages(self, session_id: str, limit: int = 500) -> list[dict]:
         cursor = (
             messages_collection()
             .find({"session_id": session_id}, {"_id": 0})
@@ -203,7 +203,7 @@ class ChatManager:
         await sessions_collection().update_one(
             {"id": session_id},
             {
-                "$push": {"events": {"$each": [event], "$slice": -20}},
+                "$push": {"events": event},
                 "$set": {"updated_at": datetime.utcnow()},
             },
         )

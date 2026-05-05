@@ -1255,19 +1255,39 @@ class ConnectionHandler:
 
                             if products:
                                 # Show product card with compatible batteries
-                                from app.ai.card_builder import build_product_card
-                                result_msg = f"**{len(products)} passende Batterie(n)** f\u00fcr **{vehicle_name}** gefunden!"
+                                from app.ai.card_builder import build_product_card, get_real_delivery_label
+
+                                # Build detailed product list for AI memory
+                                product_lines = [f"**{len(products)} passende Batterie(n)** f\u00fcr **{vehicle_name}** gefunden:\n"]
+                                for _p in products:
+                                    _pname = _p.get("name", "?")[:60]
+                                    _pprice = ""
+                                    _calc = _p.get("calculatedPrice")
+                                    if _calc and isinstance(_calc, dict):
+                                        _pprice = f"\u20ac{_calc.get('totalPrice', 0):.2f}"
+                                    elif _p.get("price") is not None:
+                                        _pprice = f"\u20ac{_p['price']:.2f}"
+                                    _pavail = "\u2705" if _p.get("available", (_p.get("stock") or 0) > 0) else "\u274c"
+                                    _pdel = get_real_delivery_label(_p)
+                                    _pid = _p.get("id", "")
+                                    _purl = f"https://voltimax.de/detail/{_pid}" if _pid else ""
+                                    product_lines.append(f"- [{_pname}]({_purl}) \u2014 {_pprice} {_pavail} \u2022 {_pdel}")
+
+                                result_msg = "\n".join(product_lines)
                                 ai_msg = await self.chat_manager.add_message(session_id, MessageRole.ASSISTANT, result_msg)
-                                await self._send_ws(websocket, OutgoingMessage(type="message", content=result_msg, message_id=ai_msg.id))
+                                await self._send_ws(websocket, OutgoingMessage(type="message", content=product_lines[0], message_id=ai_msg.id))
 
                                 product_card = build_product_card(products, session_id, from_compatibility=True, listing_url=listing_url)
                                 if product_card:
                                     await self._send_ws(websocket, OutgoingMessage(
                                         type="info_card", info_card=product_card,
                                     ))
+
+                                # Store full product details in session event
+                                _product_names = [_p.get("name", "")[:50] for _p in products]
                                 await self.chat_manager.add_session_event(
                                     session_id, "compatibility_result",
-                                    f"Vehicle: {vehicle_name} \u2014 {len(products)} products found",
+                                    f"Vehicle: {vehicle_name} \u2014 Products shown: {', '.join(_product_names)}",
                                 )
                             else:
                                 no_result_msg = f"Leider keine passenden Produkte f\u00fcr **{vehicle_name}** gefunden. Bitte versuche eine andere Kombination."
@@ -1312,15 +1332,58 @@ class ConnectionHandler:
     async def _send_ai_card(
         self, websocket: WebSocket, session_id: str, intro_text: str, card: dict | None,
     ) -> None:
-        """Send a short AI message with an embedded card as one unified response."""
+        """Send a short AI message with an embedded card as one unified response.
+
+        Also stores the full card content in the message text so the AI
+        remembers what was shown in follow-up conversations.
+        """
         import asyncio as _aio
         await self._send_ws(websocket, OutgoingMessage(type="typing"))
         await _aio.sleep(0.8)
-        ai_msg = await self.chat_manager.add_message(session_id, MessageRole.ASSISTANT, intro_text)
+
+        # Build full message text = intro + card details for AI memory
+        full_text = intro_text
+        if card:
+            card_details = self._card_to_text(card)
+            if card_details:
+                full_text = intro_text + "\n\n" + card_details
+
+        ai_msg = await self.chat_manager.add_message(session_id, MessageRole.ASSISTANT, full_text)
         await self._send_ws(websocket, OutgoingMessage(
             type="ai_card", content=intro_text, message_id=ai_msg.id, info_card=card,
         ))
         await self._send_ws(websocket, OutgoingMessage(type="play_sound", message="incoming"))
+
+    @staticmethod
+    def _card_to_text(card: dict) -> str:
+        """Convert a card dict to readable text for AI conversation memory."""
+        parts = []
+        if card.get("title"):
+            parts.append(f"[Card: {card['title']}]")
+        if card.get("description"):
+            parts.append(card["description"][:300])
+        for row in card.get("rows", []):
+            if row.get("label") and row.get("value"):
+                parts.append(f"  {row['label']}: {row['value']}")
+        for link in card.get("links", []):
+            label = link.get("label", "")
+            detail = link.get("detail", "")
+            url = link.get("url", "")
+            line = f"  - {label}"
+            if detail:
+                line += f" ({detail})"
+            if url:
+                line += f" → {url}"
+            parts.append(line)
+        for step in card.get("steps", []):
+            if step.get("title"):
+                parts.append(f"  {step['title']}: {step.get('text', '')[:100]}")
+        for field in card.get("fields", []):
+            if field.get("label") and field.get("value"):
+                parts.append(f"  {field['label']}: {field['value']}")
+        if card.get("actions"):
+            parts.append(f"  Actions: {', '.join(card['actions'][:5])}")
+        return "\n".join(parts) if parts else ""
 
     async def _get_visible_topics(self, user_claims: dict) -> list[dict]:
         """Filter topic cards based on customer context from JWT claims."""
