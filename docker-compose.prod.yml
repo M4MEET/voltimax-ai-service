@@ -1,0 +1,76 @@
+services:
+  voltimax-ai:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./.env:/app/.env:ro
+      - ./knowledge_files:/app/knowledge_files
+      - ./static/forms:/app/static/forms
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - voltimax
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - ./data/mongo:/data/db
+    restart: unless-stopped
+    networks:
+      - voltimax
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+  n8n:
+    image: n8nio/n8n
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-changeme}
+      - WEBHOOK_URL=http://localhost:5678
+      - VOLTIMAX_AI_URL=http://voltimax-ai:8000
+      - VOLTIMAX_API_KEY=${VOLTIMAX_DASHBOARD_KEY:-changeme}
+      - GENERIC_TIMEZONE=Europe/Berlin
+      - N8N_DIAGNOSTICS_ENABLED=false
+    volumes:
+      - ./data/n8n:/home/node/.n8n
+      - ./n8n/workflows:/home/node/workflows
+    restart: unless-stopped
+    networks:
+      - voltimax
+
+  mongo-express:
+    image: mongo-express:latest
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_URL=mongodb://mongo:27017/?directConnection=true
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=${MONGO_EXPRESS_PASSWORD:-changeme}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - voltimax
+
+networks:
+  voltimax:
+    driver: bridge
+
+# Production: uses mongo:7 (standard MongoDB, no keyfile issues)
+# Local dev: use docker-compose.yml (mongodb-atlas-local with $vectorSearch)
