@@ -1,12 +1,12 @@
 {
   "id": "uxyEeVBb7nBuClR5",
-  "name": "VoltimaxChat - Escalation Alert",
+  "name": "VoltimaxChat — Escalation Alert",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "voltimax-alert",
-        "responseMode": "responseNode",
+        "responseMode": "lastNode",
         "options": {}
       },
       "name": "Webhook",
@@ -17,98 +17,22 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{$json[\"reason\"]}}",
-              "operation": "isNotEmpty"
-            }
-          ]
-        }
+        "fromEmail": "={{$env.SMTP_FROM || 'noreply@voltimax.de'}}",
+        "toEmail": "={{$env.SUPPORT_EMAIL || 'support@voltimax.de'}}",
+        "subject": "={{$json.is_urgent ? '🚨 URGENT' : '⚠️'}} Groot Escalation — {{$json.topic || 'Support'}} — Ticket #{{$json.ticket_id}}",
+        "text": "Customer: {{$json.customer_name}} ({{$json.customer_email}})\nSession: {{$json.session_id}}\nTopic: {{$json.topic}}\nCustomer Phase: {{$json.customer_phase || 'unknown'}}\nComplexity: {{$json.complexity || 'simple'}}\nModel Used: {{$json.llm_provider || 'anthropic'}}\n\n--- AI Summary ---\n{{$json.summary}}\n\n--- Urgency ---\nReason: {{$json.urgency_reason || 'N/A'}}\nFrustration Score: {{$json.frustration_score || 'N/A'}}\n\n--- Session Events ---\n{{$json.session_events || 'No events'}}\n\nView in Zendesk: https://battrongmbh.zendesk.com/agent/tickets/{{$json.ticket_id}}"
       },
-      "name": "Has Reason?",
-      "type": "n8n-nodes-base.if",
+      "name": "Send Alert Email",
+      "type": "n8n-nodes-base.emailSend",
       "typeVersion": 1,
-      "position": [460, 300]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{$env.VOLTIMAX_AI_URL}}/api/analytics/log-escalation",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Dashboard-Key",
-              "value": "={{$env.VOLTIMAX_API_KEY}}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ customer_name: $node['Webhook'].json.customer_name, customer_email: $node['Webhook'].json.customer_email, topic: $node['Webhook'].json.topic, reason: $node['Webhook'].json.reason, session_id: $node['Webhook'].json.session_id }) }}"
-      },
-      "name": "Log Escalation",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [680, 200]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\": \"alert_sent\"}"
-      },
-      "name": "Respond",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [900, 300]
+      "position": [460, 300],
+      "credentials": { "smtp": { "id": "1", "name": "Voltimax SMTP" } }
     }
   ],
   "connections": {
-    "Webhook": {
-      "main": [
-        [
-          {
-            "node": "Has Reason?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Has Reason?": {
-      "main": [
-        [
-          {
-            "node": "Log Escalation",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Respond",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log Escalation": {
-      "main": [
-        [
-          {
-            "node": "Respond",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Webhook": { "main": [[{ "node": "Send Alert Email", "type": "main", "index": 0 }]] }
   },
-  "active": true,
-  "settings": {
-    "saveDataSuccessExecution": "all",
-    "saveDataErrorExecution": "all"
-  }
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "voltimax-chat" }]
 }

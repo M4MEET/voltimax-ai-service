@@ -1,21 +1,14 @@
 {
   "id": "ke0cPFcUd99fro1f",
-  "name": "VoltimaxChat - Weekly Report",
+  "name": "VoltimaxChat — Weekly Report",
   "nodes": [
     {
       "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "cronExpression",
-              "expression": "0 8 * * 1"
-            }
-          ]
-        }
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 9 * * 1" }] }
       },
-      "name": "Weekly Cron (Mon 08:00)",
+      "name": "Every Monday 9am",
       "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.1,
+      "typeVersion": 1,
       "position": [240, 300]
     },
     {
@@ -25,127 +18,46 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "X-Dashboard-Key",
-              "value": "={{$env.VOLTIMAX_API_KEY}}"
-            }
+            { "name": "X-Dashboard-Key", "value": "={{$env.VOLTIMAX_API_KEY}}" }
           ]
         }
       },
-      "name": "Get Overview Metrics",
+      "name": "Fetch Weekly Stats",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [460, 200]
+      "typeVersion": 3,
+      "position": [460, 300]
     },
     {
       "parameters": {
         "method": "GET",
-        "url": "={{$env.VOLTIMAX_AI_URL}}/api/analytics/costs?days=7",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Dashboard-Key",
-              "value": "={{$env.VOLTIMAX_API_KEY}}"
-            }
-          ]
-        }
+        "url": "={{$env.VOLTIMAX_AI_URL}}/health",
+        "options": {}
       },
-      "name": "Get Cost Data",
+      "name": "Fetch Health",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [460, 400]
+      "typeVersion": 3,
+      "position": [460, 480]
     },
     {
       "parameters": {
-        "jsCode": "const overview = $('Get Overview Metrics').first().json;\nconst costs = $('Get Cost Data').first().json;\n\nconst totalCost = costs.providers\n  ? costs.providers.reduce((sum, p) => sum + (p.estimated_cost || 0), 0).toFixed(2)\n  : '0.00';\n\nreturn [{\n  json: {\n    subject: `VoltimaxChat Weekly Report - Week of ${new Date().toLocaleDateString()}`,\n    body: [\n      `Weekly AI Chat Report`,\n      `=====================`,\n      `Period: Last 7 days`,\n      ``,\n      `OVERVIEW`,\n      `--------`,\n      `Total Chats:        ${overview.total_chats || 0}`,\n      `Active Sessions:    ${overview.active_now || 0}`,\n      `Escalation Rate:    ${overview.escalation_rate || 0}%`,\n      `AI Resolution Rate: ${overview.ai_resolution_rate || 0}%`,\n      `Tickets Created:    ${overview.tickets_created || 0}`,\n      `Token Usage:        ${overview.token_usage || 0}`,\n      ``,\n      `COSTS`,\n      `-----`,\n      `Estimated LLM Cost: $${totalCost}`,\n      ``,\n      `View full analytics: ${process.env.VOLTIMAX_AI_URL || 'http://localhost:8000'}/dashboard/`,\n    ].join('\\n'),\n  }\n}];"
+        "fromEmail": "={{$env.SMTP_FROM || 'noreply@voltimax.de'}}",
+        "toEmail": "={{$env.SUPPORT_EMAIL || 'imeetjoshi@gmail.com'}}",
+        "subject": "Groot Weekly Report — {{new Date().toISOString().slice(0,10)}}",
+        "text": "VoltimaxChat Groot — Weekly Performance Report\n================================================\n\nPeriod: Last 7 days\nGenerated: {{new Date().toISOString()}}\n\n--- KPIs ---\nTotal Chats: {{$node['Fetch Weekly Stats'].json.total_chats}}\nAI Resolution Rate: {{$node['Fetch Weekly Stats'].json.ai_resolution_rate}}%\nEscalation Rate: {{$node['Fetch Weekly Stats'].json.escalation_rate}}%\nTickets Created: {{$node['Fetch Weekly Stats'].json.tickets_created}}\nToken Usage: {{$node['Fetch Weekly Stats'].json.token_usage}}\n\n--- Session Close Reasons ---\n{{JSON.stringify($node['Fetch Weekly Stats'].json.close_reasons || {}, null, 2)}}\n\n--- Semantic Cache ---\nCached Responses: {{$node['Fetch Health'].json.semantic_cache?.response_cache_size || 0}}\nCached Embeddings: {{$node['Fetch Health'].json.semantic_cache?.embedding_cache_size || 0}}\n\n--- System Health ---\nStatus: {{$node['Fetch Health'].json.status}}\nMongoDB: {{$node['Fetch Health'].json.mongodb}}\n\nDashboard: https://chat.voltimax.de/dashboard\nLangSmith: https://eu.smith.langchain.com"
       },
-      "name": "Format Report",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [680, 300]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{$env.VOLTIMAX_AI_URL}}/api/admin/reports/weekly",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Dashboard-Key",
-              "value": "={{$env.VOLTIMAX_API_KEY}}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ subject: $json.subject, body: $json.body }) }}"
-      },
-      "name": "Store Report",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [900, 300]
+      "name": "Send Weekly Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [680, 380],
+      "credentials": { "smtp": { "id": "1", "name": "Voltimax SMTP" } }
     }
   ],
   "connections": {
-    "Weekly Cron (Mon 08:00)": {
-      "main": [
-        [
-          {
-            "node": "Get Overview Metrics",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Get Cost Data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Overview Metrics": {
-      "main": [
-        [
-          {
-            "node": "Format Report",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Cost Data": {
-      "main": [
-        [
-          {
-            "node": "Format Report",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Format Report": {
-      "main": [
-        [
-          {
-            "node": "Store Report",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Every Monday 9am": { "main": [[{ "node": "Fetch Weekly Stats", "type": "main", "index": 0 }, { "node": "Fetch Health", "type": "main", "index": 0 }]] },
+    "Fetch Weekly Stats": { "main": [[{ "node": "Send Weekly Email", "type": "main", "index": 0 }]] },
+    "Fetch Health": { "main": [[{ "node": "Send Weekly Email", "type": "main", "index": 0 }]] }
   },
-  "active": true,
-  "settings": {
-    "saveDataSuccessExecution": "all",
-    "saveDataErrorExecution": "all"
-  }
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "voltimax-chat" }]
 }

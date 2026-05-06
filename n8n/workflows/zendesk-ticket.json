@@ -1,6 +1,6 @@
 {
   "id": "T8Ab0hAPN0AT3LoM",
-  "name": "VoltimaxChat - Create Zendesk Ticket",
+  "name": "VoltimaxChat — Zendesk Ticket",
   "nodes": [
     {
       "parameters": {
@@ -17,68 +17,41 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{$env.VOLTIMAX_AI_URL}}/api/admin/escalation/log",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Dashboard-Key",
-              "value": "={{$env.VOLTIMAX_API_KEY}}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ subject: $json.subject, description: $json.description, customer_email: $json.customer_email, customer_name: $json.customer_name, metadata: $json.metadata || {} }) }}"
+        "resource": "ticket",
+        "operation": "create",
+        "subject": "={{$json.subject || 'Groot Escalation — Support'}}",
+        "description": "={{$json.description}}\n\n--- Session Info ---\nSession: {{$json.session_id}}\nTopic: {{$json.topic}}\nCustomer Phase: {{$json.customer_phase}}\nClose Reason: {{$json.close_reason || 'escalated'}}\nModel: {{$json.llm_provider || 'anthropic'}}\nComplexity: {{$json.complexity || 'simple'}}",
+        "additionalFields": {
+          "requester": {
+            "name": "={{$json.customer_name}}",
+            "email": "={{$json.customer_email}}"
+          },
+          "tags": "voltimax-chat,ai-escalation,{{$json.topic || 'general'}},{{$json.ticket_type || 'support'}}",
+          "priority": "={{$json.priority || 'normal'}}"
+        }
       },
-      "name": "Log Ticket to Server B",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [460, 300]
+      "name": "Create Zendesk Ticket",
+      "type": "n8n-nodes-base.zendesk",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": { "zendeskApi": { "id": "1", "name": "Voltimax Zendesk" } }
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\"ticket_id\": \"n8n-{{ $json.id || Date.now() }}\", \"status\": \"created\"}"
+        "responseBody": "={\"success\": true, \"ticket_id\": \"{{$node['Create Zendesk Ticket'].json.id}}\"}"
       },
-      "name": "Respond to Webhook",
+      "name": "Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [680, 300]
     }
   ],
   "connections": {
-    "Webhook": {
-      "main": [
-        [
-          {
-            "node": "Log Ticket to Server B",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log Ticket to Server B": {
-      "main": [
-        [
-          {
-            "node": "Respond to Webhook",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Webhook": { "main": [[{ "node": "Create Zendesk Ticket", "type": "main", "index": 0 }]] },
+    "Create Zendesk Ticket": { "main": [[{ "node": "Response", "type": "main", "index": 0 }]] }
   },
-  "active": true,
-  "settings": {
-    "saveDataSuccessExecution": "all",
-    "saveDataErrorExecution": "all"
-  }
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "voltimax-chat" }]
 }

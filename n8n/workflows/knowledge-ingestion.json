@@ -1,6 +1,6 @@
 {
   "id": "WVpSBJyifxme6ELb",
-  "name": "VoltimaxChat - Knowledge Ingestion",
+  "name": "VoltimaxChat — Knowledge Base Sync",
   "nodes": [
     {
       "parameters": {
@@ -22,56 +22,44 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "X-Dashboard-Key",
-              "value": "={{$env.VOLTIMAX_API_KEY}}"
-            }
+            { "name": "X-Dashboard-Key", "value": "={{$env.VOLTIMAX_API_KEY}}" }
           ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "{}"
+        "options": { "timeout": 120000 }
       },
-      "name": "Trigger CMS Sync",
+      "name": "Sync CMS Content",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "typeVersion": 3,
       "position": [460, 300]
     },
     {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={\"status\": \"ingestion_triggered\", \"result\": {{JSON.stringify($json)}}}"
+        "method": "POST",
+        "url": "={{$env.VOLTIMAX_AI_URL}}/cache/clear",
+        "options": {}
       },
-      "name": "Respond",
+      "name": "Clear Semantic Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"success\": true, \"synced\": {{$node['Sync CMS Content'].json.total_chunks || 0}}, \"cache_cleared\": true}"
+      },
+      "name": "Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [680, 300]
+      "position": [900, 300]
     }
   ],
   "connections": {
-    "Webhook": {
-      "main": [
-        [
-          {
-            "node": "Trigger CMS Sync",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Trigger CMS Sync": {
-      "main": [
-        [
-          {
-            "node": "Respond",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Webhook": { "main": [[{ "node": "Sync CMS Content", "type": "main", "index": 0 }]] },
+    "Sync CMS Content": { "main": [[{ "node": "Clear Semantic Cache", "type": "main", "index": 0 }]] },
+    "Clear Semantic Cache": { "main": [[{ "node": "Response", "type": "main", "index": 0 }]] }
   },
-  "active": true,
-  "settings": {}
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "voltimax-chat" }]
 }
