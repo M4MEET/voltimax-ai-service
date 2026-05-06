@@ -98,8 +98,8 @@ class ConnectionHandler:
                         return
 
                     session = await self.chat_manager.create_session(
-                        customer_name=user_claims["name"],
-                        customer_email=user_claims["email"],
+                        customer_name=user_claims.get("name", "Guest"),
+                        customer_email=user_claims.get("email") or "",
                         order_number=user_claims.get("order_number"),
                         sales_channel_id=user_claims.get("sales_channel_id"),
                         topic_id="general",
@@ -538,7 +538,39 @@ class ConnectionHandler:
                                 build_ticket_lookup_card())
                             continue
 
-                    # card_action == "none" → fall through to AI pipeline
+                        elif card_action == "account_info":
+                            account_msg = (
+                                "F\u00fcr Kontoinformationen wie Adresse, Passwort oder Bestell\u00fcbersicht "
+                                "kannst du dich direkt in deinem Kundenkonto einloggen:\n\n"
+                                "\U0001F449 [**Zum Kundenkonto**](https://voltimax.de/account)\n\n"
+                                "Dort kannst du:\n"
+                                "- Deine Adresse und pers\u00f6nlichen Daten \u00e4ndern\n"
+                                "- Dein Passwort zur\u00fccksetzen\n"
+                                "- Deine Bestellungen einsehen\n"
+                                "- Zahlungsmethoden verwalten\n\n"
+                                "Falls du dein Passwort vergessen hast: "
+                                "[**Passwort zur\u00fccksetzen**](https://voltimax.de/account/recover/password)"
+                            )
+                            import asyncio as _aio
+                            await self._send_ws(websocket, OutgoingMessage(type="typing"))
+                            await _aio.sleep(0.8)
+                            ai_msg = await self.chat_manager.add_message(session_id, MessageRole.ASSISTANT, account_msg)
+                            await self._send_ws(websocket, OutgoingMessage(
+                                type="message", content=account_msg, message_id=ai_msg.id,
+                            ))
+                            await self._send_ws(websocket, OutgoingMessage(type="play_sound", message="incoming"))
+                            await self.chat_manager.add_session_event(
+                                session_id, "account_info_shown", "Directed to account login page",
+                            )
+                            continue
+
+                    # card_action == "clarify" → let AI ask a follow-up question
+                    if card_action == "clarify":
+                        classification["intent"] = "direct"
+                        classification["needs_shopware_data"] = False
+                        classification["card_context"] = "ASK_CLARIFICATION"
+
+                    # card_action == "none" or "clarify" \u2192 fall through to AI pipeline
 
                     rl = get_rate_limiter()
 
@@ -978,8 +1010,9 @@ class ConnectionHandler:
                                 ),
                             ))
                             ticket_msg = f"Support ticket **#{result['ticket_id']}** created. Our team will follow up shortly."
-                            if user_claims and user_claims.get("email"):
-                                ticket_msg += f" Confirmation sent to **{user_claims['email']}**."
+                            _uc_email = user_claims.get("email") or "" if user_claims else ""
+                            if _uc_email:
+                                ticket_msg += f" Confirmation sent to **{_uc_email}**."
                             ai_msg = await self.chat_manager.add_message(
                                 session_id, MessageRole.ASSISTANT, ticket_msg
                             )
