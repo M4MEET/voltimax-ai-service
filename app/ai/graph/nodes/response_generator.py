@@ -416,7 +416,15 @@ async def generate_response(state: ChatState) -> ChatState:
             parts.append(f"CONVERSATION SUMMARY (earlier messages compressed — use this context to maintain continuity):\n{state.conversation_summary}")
         if session_activity:
             parts.append(f"SESSION ACTIVITY (what happened so far in this session — cards shown, verifications, actions):\n{session_activity}")
-        if state.card_context:
+        if state.card_context == "ASK_CLARIFICATION":
+            parts.append(
+                "CLARIFICATION NEEDED: The customer's message is vague or ambiguous. "
+                "Ask a friendly, specific follow-up question to understand what they need. "
+                "Offer 2-3 concrete options they can pick from. "
+                "Example: 'Meinst du...? Ich kann dir bei folgenden Themen helfen: ...' "
+                "Keep it short — 1-2 sentences max."
+            )
+        elif state.card_context:
             parts.append(f"CARDS SHOWN WITH THIS RESPONSE (the customer can see these interactive cards below your message — reference them, don't repeat their data):\n{state.card_context}")
         parts.append(f"INSTRUCTIONS: {guidance}")
 
