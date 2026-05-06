@@ -43,8 +43,7 @@ class VectorStore:
             await collection.insert_many(docs)
 
     async def search(self, query: str, top_k: int = 3) -> list[dict]:
-        """Search for relevant documents using vector similarity (MongoDB Atlas Vector Search)."""
-        # Check embedding cache first
+        """Search for relevant documents using vector similarity."""
         from app.ai.semantic_cache import get_semantic_cache
         cache = get_semantic_cache()
         query_vector = cache.get_embedding(query)
@@ -53,36 +52,61 @@ class VectorStore:
             cache.put_embedding(query, query_vector)
         collection = knowledge_vectors_collection()
 
-        # MongoDB Atlas Vector Search pipeline
-        pipeline = [
-            {
-                "$vectorSearch": {
-                    "index": "vector_index",
-                    "path": "embedding",
-                    "queryVector": query_vector,
-                    "numCandidates": top_k * 10,
-                    "limit": top_k,
-                }
-            },
-            {
-                "$project": {
-                    "_id": 0,
-                    "content": 1,
-                    "source_type": 1,
-                    "metadata": 1,
-                    "score": {"$meta": "vectorSearchScore"},
-                }
-            },
-        ]
-
+        # Try MongoDB Atlas $vectorSearch first (atlas-local only)
         try:
+            pipeline = [
+                {
+                    "$vectorSearch": {
+                        "index": "vector_index",
+                        "path": "embedding",
+                        "queryVector": query_vector,
+                        "numCandidates": top_k * 10,
+                        "limit": top_k,
+                    }
+                },
+                {
+                    "$project": {
+                        "_id": 0,
+                        "content": 1,
+                        "source_type": 1,
+                        "metadata": 1,
+                        "score": {"$meta": "vectorSearchScore"},
+                    }
+                },
+            ]
             results = []
             async for doc in collection.aggregate(pipeline):
                 results.append(doc)
-            return results
+            if results:
+                return results
         except Exception:
-            # Fallback: Atlas Vector Search index may not be configured yet
-            return []
+            pass
+
+        # Fallback: Python-side cosine similarity (works with any MongoDB)
+        return await self._python_vector_search(collection, query_vector, top_k)
+
+    async def _python_vector_search(
+        self, collection, query_vector: list[float], top_k: int
+    ) -> list[dict]:
+        """Fallback vector search using Python cosine similarity."""
+        cursor = collection.find(
+            {"embedding": {"$exists": True}},
+            {"content": 1, "source_type": 1, "metadata": 1, "embedding": 1, "_id": 0},
+        )
+        docs = await cursor.to_list(length=5000)
+
+        scored = []
+        for doc in docs:
+            score = self._cosine_similarity(query_vector, doc["embedding"])
+            scored.append({
+                "content": doc.get("content", ""),
+                "source_type": doc.get("source_type", ""),
+                "metadata": doc.get("metadata", {}),
+                "score": score,
+            })
+
+        scored.sort(key=lambda x: x["score"], reverse=True)
+        return scored[:top_k]
 
     async def find_qa_match(self, question: str, threshold: float = 0.85) -> str | None:
         """Find a matching Q&A pair using embedding similarity."""
