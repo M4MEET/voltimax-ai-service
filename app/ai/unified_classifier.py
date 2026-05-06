@@ -45,10 +45,12 @@ ALWAYS available (with or without verified order):
   "ticket_lookup" — wants to check status of an existing support ticket
   "compatibility_check" — wants to find a battery for their vehicle, car/motorcycle compatibility
   "batteriepfand" — asking about Batteriepfand, battery deposit return, Pfandrückgabe, Altbatterie zurückgeben, wants to submit Batteriepfand forms
+  "account_info" — asking about their account, profile, login, password reset, address management, personal data, Kundenkonto
 
 If customer does NOT have a verified order:
-  "order_lookup" — talking about their specific order, needs verification
+  "order_lookup" — talking about their specific order, needs verification. Also use this when customer asks about payment status, invoice, tracking, refund, or ANY order-specific information WITHOUT a verified order — they need to verify their order first.
   "no_order" — explicitly says they don't have an order
+  "clarify" — message is too vague or ambiguous to determine intent. Use this when you genuinely cannot tell what the customer wants. AI will ask a follow-up question to understand better.
   "none" — general question, let AI respond naturally
 
 INTENT CATEGORIES:
@@ -71,11 +73,13 @@ SEARCH QUERY:
 
 RULES:
   - Use action "none" for greetings, thanks, general questions
-  - Use "escalation_ticket" when customer wants to contact support — even WITHOUT an order
-  - Use "order_lookup" ONLY when customer wants info about THEIR specific placed order
+  - Use "escalation_ticket" ONLY when customer explicitly wants to talk to a human agent, create a support ticket, or says "support kontaktieren" — NOT for account questions or payment questions
+  - Use "order_lookup" when customer asks about payment status, tracking, invoice, refund, or any order-specific info WITHOUT a verified order — they must verify first
   - Use "tracking"/"payment"/"invoice" ONLY when has_order=true
+  - Use "account_info" when customer asks about their account, profile, login, password, address changes, personal data, Kundenkonto, Kontoinformationen — this is NEVER an escalation, always account_info
   - Use "batteriepfand" whenever the customer mentions Batteriepfand, Pfandrückgabe, battery deposit, or Altbatterie return — this is NEVER a product search, always the batteriepfand action
-  - When unsure, prefer action "none"
+  - Use "clarify" when the message is too short, vague, or could mean multiple things (e.g. "hilfe", "status", "problem", single words without context). The AI will ask a friendly follow-up question.
+  - When unsure between two specific actions, prefer "clarify" over guessing wrong
 
 COMPLEXITY (pick one):
   "simple" — greetings, thanks, yes/no answers, single straightforward question
@@ -162,7 +166,7 @@ async def classify_message(
         "tracking", "payment", "invoice", "return_ticket", "problem_ticket",
         "escalation_ticket", "warranty", "another_order",
         "order_lookup", "ticket_lookup", "compatibility_check", "batteriepfand",
-        "no_order", "none",
+        "account_info", "clarify", "no_order", "none",
     }
     if action not in valid_actions:
         action = "none"
@@ -172,6 +176,10 @@ async def classify_message(
                    "problem_ticket", "warranty", "another_order"}
     if action in order_cards and not has_verified_order:
         action = "order_lookup"
+
+    # Safety: customer_query about account should use account_info, not escalation
+    if intent == "customer_query" and action in ("escalation_ticket", "none"):
+        action = "account_info"
 
     # Map intent to data needs
     data_map = {
@@ -187,14 +195,28 @@ async def classify_message(
     }
     data_type, needs_data = data_map.get(intent, ("", False))
 
+    # account_info is handled directly in connection.py — no Shopware/RAG data needed
+    if action == "account_info":
+        data_type = ""
+        needs_data = False
+
     # Auto-resolve topic
     topic_map = {
         "product_query": "product_help",
         "product_doc_query": "product_help",
         "order_query": "order_status",
         "return_query": "returns",
+        "customer_query": "account",
     }
     resolved_topic = topic_map.get(intent, "")
+
+    # Action-based topic override
+    if action == "account_info":
+        resolved_topic = "account"
+    elif action == "batteriepfand":
+        resolved_topic = "batteriepfand"
+    elif action in ("tracking", "payment", "invoice", "order_lookup"):
+        resolved_topic = "order_status"
 
     # Validate complexity
     if complexity not in ("simple", "complex"):
