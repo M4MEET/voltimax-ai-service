@@ -19,6 +19,7 @@ services:
 
   mongo:
     image: mongodb/mongodb-atlas-local:latest
+    privileged: true
     ports:
       - "127.0.0.1:27017:27017"
     volumes:
