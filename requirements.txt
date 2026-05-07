@@ -45,3 +45,4 @@ pytest-asyncio>=0.24.0
 
 # Utilities
 python-dotenv>=1.0.1
+chevron>=0.14.0
