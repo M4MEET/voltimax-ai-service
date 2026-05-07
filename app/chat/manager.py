@@ -6,6 +6,7 @@ from datetime import datetime
 from app.chat.models import ChatMessage, ChatSession, MessageRole, SessionStatus
 from app.db.collections import (
     analytics_events_collection,
+    consent_log_collection,
     messages_collection,
     sessions_collection,
 )
@@ -45,6 +46,15 @@ class ChatManager:
             "customer_email": customer_email,
             "topic_id": topic_id,
             "created_at": datetime.utcnow(),
+        })
+
+        # GDPR consent log — mirror of Shopware's consent_log table
+        await consent_log_collection().insert_one({
+            "session_id": session.id,
+            "chat_id": chat_id,
+            "customer_name": customer_name,
+            "customer_email": customer_email or "",
+            "consented_at": datetime.utcnow(),
         })
 
         return session

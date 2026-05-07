@@ -31,3 +31,7 @@ def admin_config_collection():
 
 def logs_collection():
     return get_db()["logs"]
+
+
+def consent_log_collection():
+    return get_db()["consent_log"]
