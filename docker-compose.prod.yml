@@ -48,7 +48,8 @@ services:
       - VOLTIMAX_API_KEY=${VOLTIMAX_DASHBOARD_KEY:-changeme}
       - GENERIC_TIMEZONE=Europe/Berlin
       - N8N_DIAGNOSTICS_ENABLED=false
-      - N8N_PATH_PREFIX=/n8n
+      - N8N_EDITOR_BASE_URL=https://chat.voltimax.de/n8n/
+      - VUE_APP_URL_BASE_API=https://chat.voltimax.de/n8n/
     volumes:
       - ./data/n8n:/home/node/.n8n
       - ./n8n/workflows:/home/node/workflows
