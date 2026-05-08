@@ -74,9 +74,14 @@
   │  • ticket_lookup   → 🔍 ticket form│                            │
   │  • compatibility   → 🚗 vehicle    │                            │
   │  • batteriepfand   → 📄 pfand flow │                            │
+  │  • account_info    → 🔑 login link │                            │
+  │  • clarify         → AI asks       │                            │
+  │    follow-up question               │                            │
   │                                     │                            │
   │  NO verified order:                 │                            │
   │  • order_lookup    → 🔍 lookup     │                            │
+  │    (also for payment/tracking/      │                            │
+  │     invoice without verified order) │                            │
   │  • no_order        → 💬 help card  │                            │
   │                                     │                            │
   │  ALL cards sent as type "ai_card"   │                            │
@@ -112,6 +117,9 @@
   Intents: product_query, product_doc_query, order_query,
   return_query, customer_query, b2b_query, rag_query, direct,
   escalation. Classifier uses last 10 messages for context.
+  
+  Topic auto-switching: account_info→account, batteriepfand→batteriepfand,
+  tracking/payment/invoice/order_lookup→order_status, product_query→product_help
          │                    │                    │
          ▼                    ▼                    ▼
   ┌─────────────────────────────────────────────────────────┐
@@ -1596,4 +1604,161 @@ follow-up — all from within the chat widget, without creating a new ticket.
   │ Tickets           │ Zendesk tickets from Groot, customer info,  │
   │                   │ link to Zendesk dashboard                   │
   └───────────────────┴────────────────────────────────────────────┘
+```
+
+## Account Info Action
+
+```
+  Customer: "I want to know about my account" / "Mein Konto"
+         │
+         ▼
+  Classifier → action=account_info
+  (Safety: customer_query + escalation/none → forced to account_info)
+  (No Shopware data fetched, no RAG retrieval)
+         │
+         ▼
+  Direct response with login links:
+  👉 Zum Kundenkonto (https://<SHOP>/account)
+  - Adresse und persönliche Daten ändern
+  - Passwort zurücksetzen
+  - Bestellungen einsehen
+  - Zahlungsmethoden verwalten
+  👉 Passwort zurücksetzen (https://<SHOP>/account/recover/password)
+```
+
+## Clarify Action (Ambiguous Messages)
+
+```
+  Customer: "status" / "hilfe" / vague single word
+         │
+         ▼
+  Classifier → action=clarify (too ambiguous to route)
+         │
+         ▼
+  AI Pipeline runs with ASK_CLARIFICATION context:
+  - Asks friendly follow-up with 2-3 concrete options
+  - Example: "Meinst du den Status deiner Bestellung, eines
+    Tickets, oder deines Kontos?"
+  - Customer's next message re-classifies with full context
+```
+
+## GDPR Consent Logging
+
+```
+  Consent is logged in TWO databases for safety:
+
+  1. Shopware MySQL (voltimax_chat_consent_log):
+     - customer_name, customer_email (empty if anonymous)
+     - ip_address, consented_at, sales_channel_id
+
+  2. MongoDB (consent_log collection):
+     - session_id, chat_id, customer_name, customer_email
+     - consented_at
+
+  Email handling:
+  - Home screen: no email collected (anonymous start)
+  - Session: customer_email = "" until provided
+  - Ticket creation: form email updates session before creating ticket
+  - Order verification: order's billing email stored on session
+```
+
+## Chat Widget UI (Glassmorphic Design)
+
+```
+  Floating bubble:
+  - Dynamic Island style: expands on hover (56px → pill)
+  - Hides when widget is open, shows on minimize/close
+  - Morph animation: widget opens FROM bubble position
+
+  Dynamic Island header:
+  - Collapsed: compact pill (50% width), dot + title
+  - Hover: expands to full width with actions
+  - Gradient background with frosted glass overlay
+  - Buttons: [expand] [three-dots menu] [minimize] [close]
+  - Three-dots menu: new chat, copy transcript (body-mounted dropdown)
+
+  Widget body:
+  - Glassmorphic: rgba(255,255,255,0.78) + blur(20px)
+  - 2px themed outline border
+  - Expand/collapse between 370×600 and 480×85vh
+  - Scroll containment (overscroll-behavior: contain)
+
+  Messages:
+  - Delivery status: Gesendet → Zugestellt → Gelesen
+  - Groot avatar: 20px, no background, brand gradient
+  - AI bubbles: semi-transparent (rgba 0.75)
+
+  Input:
+  - Pill shape with indigo border, gold on focus
+  - Gradient circular send button
+  - No double border, transparent background
+
+  Rating:
+  - Compact floating bubble (not full overlay)
+  - Morphs from widget → rating pill → thank you → collapses into bubble
+
+  Home screen:
+  - Name only (no email)
+  - 14 suggestion chips covering all card actions
+  - Matching pill input with gradient send button
+  - Flying message animation on send
+
+  Dev mode:
+  - IP whitelist in Twig template
+  - Reads CF-Connecting-IP → X-Forwarded-For → clientIp
+  - Supports IPv4 + IPv6 (comma-separated)
+
+  Session persistence:
+  - sessionStorage saves after every message
+  - Restores on page navigation
+  - Auto-resends interrupted messages
+  - Bubble always rendered (even after session restore)
+
+  Auth error handling:
+  - 401/token expired → silently resets to home screen
+  - Stops reconnect loop, clears stale session
+```
+
+## MongoDB Collections (Complete)
+
+```
+  ┌──────────────────────┬──────────────────────────────────────────────┐
+  │ Collection           │ Purpose                                      │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ chat_sessions        │ Active/closed sessions with customer info,   │
+  │                      │ topic, events, order data, chat_id           │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ chat_messages        │ Full message history per session             │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ knowledge_vectors    │ Embedded document chunks for RAG             │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ knowledge_sources    │ Source metadata (files, CMS pages)           │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ qa_pairs             │ Exact Q&A pairs (highest priority match)     │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ analytics_events     │ Session metrics, response times, tokens      │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ admin_config         │ Dashboard-editable settings (LLM routing)    │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ consent_log          │ GDPR consent records (mirrors Shopware DB)   │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ logs                 │ Application logs                             │
+  └──────────────────────┴──────────────────────────────────────────────┘
+```
+
+## Vector Search Fallback
+
+```
+  Primary: MongoDB $vectorSearch (atlas-local only)
+  Fallback: Python-side cosine similarity (any MongoDB)
+
+  Search flow:
+  1. Try $vectorSearch → if results, return
+  2. If $vectorSearch fails (mongo:7, no index):
+     → Fetch all embeddings from MongoDB
+     → Compute cosine similarity in Python
+     → Sort by score, return top_k
+  
+  Ensures RAG works on both local (atlas-local) and
+  production (standard mongo:7 or atlas-local).
 ```
