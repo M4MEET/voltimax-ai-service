@@ -1,16 +1,16 @@
-# VoltimaxChat — Production Maintenance Guide
+# Production Maintenance Guide
 
 > **Last updated:** 2026-05-05
 >
-> This document covers the full two-server architecture, deployment, configuration, monitoring, and troubleshooting for the VoltimaxChat system.
+> This document covers the full two-server architecture, deployment, configuration, monitoring, and troubleshooting for the AI Chat system.
 
 ---
 
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
-- [Server B Setup (AI Service)](#server-b-setup-ai-service-at-chatvoltimax.de)
-- [Server A Setup (Shopware Plugin)](#server-a-setup-shopware-plugin-at-voltimaxde)
+- [Server B Setup (AI Service)](#server-b-setup-ai-service-at-chat<SHOP_DOMAIN>)
+- [Server A Setup (Shopware Plugin)](#server-a-setup-shopware-plugin-at-shop-domain)
 - [Credentials & Tokens](#credentials--tokens)
 - [Monitoring & Debugging](#monitoring--debugging)
 - [Backup & Recovery](#backup--recovery)
@@ -29,12 +29,12 @@
                │                                           │
                ▼                                           ▼
 ┌──────────────────────────────┐       ┌──────────────────────────────────────┐
-│   SERVER A (voltimax.de)     │       │   SERVER B (chat.voltimax.de)        │
+│   SERVER A (<SHOP_DOMAIN>)     │       │   SERVER B (chat.<SHOP_DOMAIN>)        │
 │   Plesk / Hetzner            │       │   Hetzner VPS                        │
 │                              │       │                                      │
 │  ┌────────────────────────┐  │       │  ┌─────────────────────────────────┐ │
 │  │  Shopware 6.6.10       │  │       │  │  Nginx (reverse proxy)          │ │
-│  │  + VoltimaxChat Plugin │  │       │  │  - /        → :8000 (FastAPI)   │ │
+│  │  + Chat Plugin         │  │       │  │  - /        → :8000 (FastAPI)   │ │
 │  │                        │  │       │  │  - /ws      → :8000 (WebSocket) │ │
 │  │  - Widget JS           │  │       │  │  - /n8n/    → :5678 (N8N)       │ │
 │  │  - JWT issuer          │  │       │  │  - /db/     → :8081 (MongoExpr) │ │
@@ -45,7 +45,7 @@
 │  DB: MySQL (Shopware)        │       │  │  Docker Compose Stack           │ │
 │                              │       │  │                                 │ │
 └──────────────────────────────┘       │  │  ┌─────────────┐ ┌───────────┐ │ │
-                                       │  │  │ voltimax-ai │ │   n8n     │ │ │
+                                       │  │  │ app-service │ │   n8n     │ │ │
          Communication:                │  │  │ (FastAPI)   │ │ workflows │ │ │
                                        │  │  │ :8000       │ │ :5678     │ │ │
   1. Widget JS → WebSocket → Server B  │  │  └─────────────┘ └───────────┘ │ │
@@ -63,34 +63,34 @@
 
 | Server | Role | Key Responsibilities |
 |--------|------|---------------------|
-| **A** (voltimax.de) | Shopware storefront | Serves the shop, renders the chat widget, issues JWT tokens, provides Store API + Admin API endpoints for order/product/customer data |
-| **B** (chat.voltimax.de) | AI service backend | Handles WebSocket chat sessions, runs LLM inference (Anthropic/OpenAI), performs RAG with knowledge base, manages escalation to Zendesk, runs N8N automations, stores conversation history in MongoDB |
+| **A** (<SHOP_DOMAIN>) | Shopware storefront | Serves the shop, renders the chat widget, issues JWT tokens, provides Store API + Admin API endpoints for order/product/customer data |
+| **B** (chat.<SHOP_DOMAIN>) | AI service backend | Handles WebSocket chat sessions, runs LLM inference (Anthropic/OpenAI), performs RAG with knowledge base, manages escalation to Zendesk, runs N8N automations, stores conversation history in MongoDB |
 
 ### Communication Flow
 
 1. **Customer opens widget** → Browser loads JS from Server A
-2. **Widget connects** → WebSocket to `wss://chat.voltimax.de/ws/{session_id}?token={jwt}`
+2. **Widget connects** → WebSocket to `wss://chat.<SHOP_DOMAIN>/ws/{session_id}?token={jwt}`
 3. **AI needs shop data** → Server B calls Server A's Admin API (orders, customers) using OAuth2 client credentials
 4. **Escalation triggered** → Server B fires webhook to N8N → N8N creates Zendesk ticket / sends email
 
 ---
 
-## Server B Setup (AI Service at chat.voltimax.de)
+## Server B Setup (AI Service at chat.<SHOP_DOMAIN>)
 
 ### Prerequisites
 
 - Hetzner VPS (minimum 4GB RAM recommended)
 - Docker Engine 24+ and Docker Compose v2
 - Nginx installed on host (for reverse proxy)
-- Domain `chat.voltimax.de` pointed to server IP
+- Domain `chat.<SHOP_DOMAIN>` pointed to server IP
 - SSL certificate (Let's Encrypt via certbot)
 
 ### Installation
 
 ```bash
 # 1. Clone the repository
-git clone git@github.com:YOUR_ORG/voltimax-ai-service.git /opt/voltimax-ai-service
-cd /opt/voltimax-ai-service
+git clone git@github.com:<GITHUB_ORG>/<AI_SERVICE_REPO>.git <AI_SERVICE_ROOT>
+cd <AI_SERVICE_ROOT>
 
 # 2. Create environment file
 cp .env.example .env
@@ -118,8 +118,8 @@ curl http://localhost:8000/health
 |--------|---------|
 | Start all services | `docker compose -f docker-compose.prod.yml up -d` |
 | Stop all services | `docker compose -f docker-compose.prod.yml down` |
-| Restart a single service | `docker compose -f docker-compose.prod.yml restart voltimax-ai` |
-| Rebuild after code change | `docker compose -f docker-compose.prod.yml up -d --build voltimax-ai` |
+| Restart a single service | `docker compose -f docker-compose.prod.yml restart app` |
+| Rebuild after code change | `docker compose -f docker-compose.prod.yml up -d --build app` |
 | Rebuild everything | `docker compose -f docker-compose.prod.yml up -d --build` |
 | View running containers | `docker compose -f docker-compose.prod.yml ps` |
 
@@ -127,7 +127,7 @@ curl http://localhost:8000/health
 
 | Service | Command |
 |---------|---------|
-| AI service | `docker compose -f docker-compose.prod.yml logs -f voltimax-ai` |
+| AI service | `docker compose -f docker-compose.prod.yml logs -f app` |
 | MongoDB | `docker compose -f docker-compose.prod.yml logs -f mongo` |
 | N8N | `docker compose -f docker-compose.prod.yml logs -f n8n` |
 | Mongo Express | `docker compose -f docker-compose.prod.yml logs -f mongo-express` |
@@ -146,19 +146,19 @@ Always use `-f docker-compose.prod.yml` on the production server.
 
 | Variable | Description | How to Get |
 |----------|-------------|-----------|
-| `MONGO_URI` | MongoDB connection string | Default: `mongodb://localhost:27017/voltimax_chat` (Docker internal: `mongodb://mongo:27017`) |
+| `MONGO_URI` | MongoDB connection string | Default: `mongodb://localhost:27017/<DB_NAME>` (Docker internal: `mongodb://mongo:27017`) |
 | `CONFIG_PATH` | Path to config.yaml inside container | Default: `config.yaml` (mounted at `/app/config.yaml`) |
 | `LANGCHAIN_API_KEY` | LangSmith API key for tracing | [smith.langchain.com/settings](https://smith.langchain.com/settings) |
 | `LANGCHAIN_TRACING_V2` | Enable LangChain tracing | Set to `true` |
 | `LANGSMITH_TRACING` | Enable LangSmith tracing | Set to `true` |
-| `LANGCHAIN_PROJECT` | LangSmith project name | e.g., `VoltimaxChat-Groot` (production) or `VoltimaxChat-Dev` |
+| `LANGCHAIN_PROJECT` | LangSmith project name | e.g., `<LANGSMITH_PROJECT>` (production) or `<LANGSMITH_PROJECT_DEV>` |
 | `LANGCHAIN_ENDPOINT` | LangSmith API endpoint | `https://eu.api.smith.langchain.com` (EU region) |
 | `LANGSMITH_API_KEY` | Same as LANGCHAIN_API_KEY | Same key, duplicated for compatibility |
 | `LANGSMITH_ENDPOINT` | Same as LANGCHAIN_ENDPOINT | Same endpoint |
 | `LANGSMITH_PROJECT` | Same as LANGCHAIN_PROJECT | Same project name |
 | `ANTHROPIC_API_KEY` | Anthropic Claude API key | [console.anthropic.com](https://console.anthropic.com/) |
 | `OPENAI_API_KEY` | OpenAI API key (embeddings + fallback) | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
-| `VOLTIMAX_DASHBOARD_KEY` | API key for dashboard & N8N auth | Generate with `openssl rand -hex 16` |
+| `DASHBOARD_KEY` | API key for dashboard & N8N auth | Generate with `openssl rand -hex 16` |
 | `MONGO_EXPRESS_PASSWORD` | Password for Mongo Express web UI | Generate with `openssl rand -hex 16` |
 
 > **Note:** `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` in `.env` are used by LangGraph Studio and direct imports. The same keys should also be placed in `config.yaml` under `llm_providers`.
@@ -179,7 +179,7 @@ The JWT secret is the critical shared credential between Server A and Server B. 
 
 ```yaml
 shopware:
-  server_a_url: "https://voltimax.de"
+  server_a_url: "https://<SHOP_DOMAIN>"
   api_key: "<integration-access-key>"        # From Shopware Admin → Integrations
   integration_secret: "<integration-secret>"  # From same Integration
   store_api_key: "<sw-access-key>"           # Sales Channel API access key
@@ -197,10 +197,10 @@ escalation:
   ai_detection_enabled: true
   frustration_threshold: 0.75
   zendesk:
-    subdomain: "voltimax"            # → voltimax.zendesk.com
-    email: "agent@voltimax.de"       # Zendesk agent email
+    subdomain: "<ZENDESK_SUBDOMAIN>"            # → <ZENDESK_SUBDOMAIN>.zendesk.com
+    email: "agent@<SHOP_DOMAIN>"       # Zendesk agent email
     api_token: "<zendesk-api-token>" # Zendesk Admin → API Tokens
-  support_email: "support@voltimax.de"
+  support_email: "support@<SHOP_DOMAIN>"
 ```
 
 #### CORS Origins
@@ -208,9 +208,9 @@ escalation:
 ```yaml
 server:
   cors_origins:
-    - "https://voltimax.de"
-    - "https://www.voltimax.de"
-    - "https://chat.voltimax.de"
+    - "https://<SHOP_DOMAIN>"
+    - "https://www.<SHOP_DOMAIN>"
+    - "https://chat.<SHOP_DOMAIN>"
 ```
 
 Every domain that loads the chat widget must be listed here. Missing entries cause CORS errors in the browser console.
@@ -278,40 +278,40 @@ rate_limiting:
 #### N8N
 
 - **Image:** `n8nio/n8n`
-- **Accessible at:** `https://chat.voltimax.de/n8n/`
+- **Accessible at:** `https://chat.<SHOP_DOMAIN>/n8n/`
 - **Key environment:**
   - `N8N_PATH=/n8n/` — serves under subpath
-  - `N8N_EDITOR_BASE_URL=https://chat.voltimax.de/n8n/` — correct asset URLs
-  - `WEBHOOK_URL=https://chat.voltimax.de/n8n/` — webhook callbacks
-  - `VOLTIMAX_AI_URL=http://voltimax-ai:8000` — internal Docker network call
-  - `VOLTIMAX_API_KEY=${VOLTIMAX_DASHBOARD_KEY}` — auth for AI service
+  - `N8N_EDITOR_BASE_URL=https://chat.<SHOP_DOMAIN>/n8n/` — correct asset URLs
+  - `WEBHOOK_URL=https://chat.<SHOP_DOMAIN>/n8n/` — webhook callbacks
+  - `AI_SERVICE_URL=http://app:8000` — internal Docker network call
+  - `AI_API_KEY=${DASHBOARD_KEY}` — auth for AI service
 - **Volumes:** `./data/n8n` (persistent data), `./n8n/workflows` (workflow JSON files)
 - **Workflows:** Zendesk Ticket, Escalation Alert, Knowledge Ingestion, Weekly Report
 
 #### Mongo Express
 
 - **Image:** `mongo-express:latest`
-- **Accessible at:** `https://chat.voltimax.de/db/`
+- **Accessible at:** `https://chat.<SHOP_DOMAIN>/db/`
 - **Auth:** Basic auth with `admin` / `${MONGO_EXPRESS_PASSWORD}`
 - **Base URL config:** `ME_CONFIG_SITE_BASEURL=/db`
 
 #### Dashboard
 
-- **Part of the voltimax-ai FastAPI app** (not a separate container)
-- **Accessible at:** `https://chat.voltimax.de/dashboard`
-- **Auth:** `VOLTIMAX_DASHBOARD_KEY` header or configured `shopware.api_key`
+- **Part of the the FastAPI app** (not a separate container)
+- **Accessible at:** `https://chat.<SHOP_DOMAIN>/dashboard`
+- **Auth:** `DASHBOARD_KEY` header or configured `shopware.api_key`
 
 ### Nginx Configuration
 
-Full example for `chat.voltimax.de`:
+Full example for `chat.<SHOP_DOMAIN>`:
 
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name chat.voltimax.de;
+    server_name chat.<SHOP_DOMAIN>;
 
-    ssl_certificate     /etc/letsencrypt/live/chat.voltimax.de/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/chat.voltimax.de/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/chat.<SHOP_DOMAIN>/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/chat.<SHOP_DOMAIN>/privkey.pem;
 
     # ── Main API (FastAPI) ──────────────────────────────────────
     location / {
@@ -366,38 +366,38 @@ server {
 # ── HTTP → HTTPS redirect ──────────────────────────────────────
 server {
     listen 80;
-    server_name chat.voltimax.de;
+    server_name chat.<SHOP_DOMAIN>;
     return 301 https://$host$request_uri;
 }
 ```
 
 ---
 
-## Server A Setup (Shopware Plugin at voltimax.de)
+## Server A Setup (Shopware Plugin at <SHOP_DOMAIN>)
 
 ### Plugin Installation
 
 ```bash
 # Navigate to Shopware custom plugins directory
-cd /var/www/voltimax.de/src/custom/plugins/
+cd /var/www/<SHOP_DOMAIN>/src/custom/plugins/
 
 # Option 1: Git clone
-git clone git@github.com:YOUR_ORG/voltimax-chat.git
+git clone git@github.com:<GITHUB_ORG>/<PLUGIN_REPO>.git
 
 # Option 2: Upload zip via Shopware Admin → Extensions → Upload
 
 # Install and activate
-cd /var/www/voltimax.de/
+cd /var/www/<SHOP_DOMAIN>/
 bin/console plugin:refresh
-bin/console plugin:install VoltimaxChat
-bin/console plugin:activate VoltimaxChat
+bin/console plugin:install <PLUGIN_NAME>
+bin/console plugin:activate <PLUGIN_NAME>
 bin/console theme:compile
 bin/console cache:clear
 ```
 
 ### Plugin Configuration
 
-Configure in Shopware Admin → Extensions → My Extensions → VoltimaxChat → Config.
+Configure in Shopware Admin → Extensions → My Extensions → <PLUGIN_NAME> → Config.
 
 #### Card 1: General
 
@@ -411,7 +411,7 @@ Configure in Shopware Admin → Extensions → My Extensions → VoltimaxChat �
 
 | Setting | Type | Description |
 |---------|------|-------------|
-| `serverBUrl` | URL | Base URL of Server B (e.g., `https://chat.voltimax.de`) |
+| `serverBUrl` | URL | Base URL of Server B (e.g., `https://chat.<SHOP_DOMAIN>`) |
 | `sharedApiKey` | Password | Shared API key for Server A ↔ Server B auth |
 | `jwtSecret` | Password | **Must match** `jwt.secret` in Server B's `config.yaml` |
 | `jwtTtlMinutes` | Integer (default: 30) | How long JWT tokens are valid before refresh |
@@ -493,7 +493,7 @@ curl -6 ifconfig.me
 After any plugin changes that affect templates or JS:
 
 ```bash
-cd /var/www/voltimax.de/
+cd /var/www/<SHOP_DOMAIN>/
 bin/console theme:compile
 bin/console cache:clear
 ```
@@ -509,21 +509,21 @@ bin/console cache:clear
 
 The plugin creates one custom table:
 
-**`voltimax_chat_consent_log`** — Records user consent for data processing before chat sessions.
+**`<PLUGIN_PREFIX>_consent_log`** — Records user consent for data processing before chat sessions.
 
 ```bash
 # Connect to Shopware MySQL
 mysql -u shopware -p shopware_db
 
 # Check table exists
-SHOW TABLES LIKE 'voltimax_chat%';
+SHOW TABLES LIKE '<PLUGIN_PREFIX>%';
 
 # View recent consents
-SELECT * FROM voltimax_chat_consent_log ORDER BY created_at DESC LIMIT 10;
+SELECT * FROM <PLUGIN_PREFIX>_consent_log ORDER BY created_at DESC LIMIT 10;
 
 # Count consents by day
 SELECT DATE(created_at) as day, COUNT(*) as consents
-FROM voltimax_chat_consent_log
+FROM <PLUGIN_PREFIX>_consent_log
 GROUP BY day ORDER BY day DESC LIMIT 7;
 ```
 
@@ -556,7 +556,7 @@ openssl rand -hex 16
 | **Integration Access Key** | Created in Admin → Integrations | `shopware.api_key` in config.yaml |
 | **Integration Secret** | Created in Admin → Integrations | `shopware.integration_secret` in config.yaml |
 | **Store API Key** | Found in Sales Channel settings | `shopware.store_api_key` in config.yaml |
-| **Dashboard Key** | Not needed | `VOLTIMAX_DASHBOARD_KEY` in .env |
+| **Dashboard Key** | Not needed | `DASHBOARD_KEY` in .env |
 | **Mongo Express Password** | Not needed | `MONGO_EXPRESS_PASSWORD` in .env |
 | **Anthropic API Key** | Not needed | `ANTHROPIC_API_KEY` in .env + `llm_providers.anthropic.api_key` in config.yaml |
 | **OpenAI API Key** | Not needed | `OPENAI_API_KEY` in .env + `llm_providers.openai.api_key` in config.yaml |
@@ -571,7 +571,7 @@ Server B needs Admin API access to query orders, customers, and products. This r
 
 1. Shopware Admin → Settings → System → **Integrations**
 2. Click **Add integration**
-3. Name: `VoltimaxChat AI Service`
+3. Name: `<INTEGRATION_NAME>`
 4. Check **Administrator** (or assign specific roles for least privilege)
 5. Save
 6. Copy the **Access key ID** → this is `shopware.api_key` in config.yaml
@@ -579,7 +579,7 @@ Server B needs Admin API access to query orders, customers, and products. This r
 
 **How it's used:**
 
-Server B sends a POST to `https://voltimax.de/api/oauth/token`:
+Server B sends a POST to `https://<SHOP_DOMAIN>/api/oauth/token`:
 ```json
 {
   "grant_type": "client_credentials",
@@ -600,14 +600,14 @@ This returns a bearer token used for subsequent Admin API calls.
 curl http://localhost:8000/health
 
 # From anywhere (through Nginx)
-curl https://chat.voltimax.de/health
+curl https://chat.<SHOP_DOMAIN>/health
 ```
 
 Expected response:
 ```json
 {
   "status": "ok",
-  "service": "voltimax-ai-service",
+  "service": "<SERVICE_NAME>",
   "version": "1.0.0",
   "mongodb": "connected",
   "semantic_cache": { "hits": 142, "misses": 891, "size": 312 }
@@ -620,24 +620,24 @@ If `mongodb` shows `"disconnected"`, the MongoDB container is down or unhealthy.
 
 ```bash
 # Server B — Docker services
-docker compose -f docker-compose.prod.yml logs -f voltimax-ai    # AI service
+docker compose -f docker-compose.prod.yml logs -f app    # AI service
 docker compose -f docker-compose.prod.yml logs -f mongo           # MongoDB
 docker compose -f docker-compose.prod.yml logs -f n8n             # N8N workflows
 docker compose -f docker-compose.prod.yml logs -f mongo-express   # Mongo Express
 
 # Server B — Nginx
-tail -f /var/log/nginx/chat.voltimax.de-access.log
-tail -f /var/log/nginx/chat.voltimax.de-error.log
+tail -f /var/log/nginx/chat.<SHOP_DOMAIN>-access.log
+tail -f /var/log/nginx/chat.<SHOP_DOMAIN>-error.log
 
 # Server A — Shopware
-tail -f /var/www/voltimax.de/var/log/prod-$(date +%Y-%m-%d).log
+tail -f /var/www/<SHOP_DOMAIN>/var/log/prod-$(date +%Y-%m-%d).log
 ```
 
 ### LangSmith
 
 - **Dashboard:** [https://eu.smith.langchain.com](https://eu.smith.langchain.com)
-- **Production project:** `VoltimaxChat-Groot`
-- **Development project:** `VoltimaxChat-Dev`
+- **Production project:** `<LANGSMITH_PROJECT>`
+- **Development project:** `<LANGSMITH_PROJECT_DEV>`
 
 LangSmith traces every LLM call, including:
 - Input/output tokens
@@ -693,13 +693,13 @@ volumes:
 ```yaml
 server:
   cors_origins:
-    - "https://voltimax.de"
-    - "https://www.voltimax.de"      # Don't forget www!
-    - "https://staging.voltimax.de"  # Add staging if needed
+    - "https://<SHOP_DOMAIN>"
+    - "https://www.<SHOP_DOMAIN>"      # Don't forget www!
+    - "https://staging.<SHOP_DOMAIN>"  # Add staging if needed
 ```
 Then restart the AI service:
 ```bash
-docker compose -f docker-compose.prod.yml restart voltimax-ai
+docker compose -f docker-compose.prod.yml restart app
 ```
 
 #### N8N blank page
@@ -711,8 +711,8 @@ docker compose -f docker-compose.prod.yml restart voltimax-ai
 **Fix:** Ensure all three N8N subpath variables are consistent:
 ```yaml
 - N8N_PATH=/n8n/
-- N8N_EDITOR_BASE_URL=https://chat.voltimax.de/n8n/
-- WEBHOOK_URL=https://chat.voltimax.de/n8n/
+- N8N_EDITOR_BASE_URL=https://chat.<SHOP_DOMAIN>/n8n/
+- WEBHOOK_URL=https://chat.<SHOP_DOMAIN>/n8n/
 ```
 And the Nginx location block uses trailing slash rewrite:
 ```nginx
@@ -751,14 +751,14 @@ location /n8n/ {
 ### How to Backup MongoDB
 
 ```bash
-cd /opt/voltimax-ai-service
+cd <AI_SERVICE_ROOT>
 
 # Create backup directory
 mkdir -p backup
 
 # Backup MongoDB data volume to tar.gz
 docker run --rm \
-  -v voltimax-ai-service_mongodb_data:/data \
+  -v <PROJECT>_mongodb_data:/data \
   -v $(pwd)/backup:/backup \
   alpine tar czf /backup/mongo-backup-$(date +%Y%m%d-%H%M%S).tar.gz -C /data .
 
@@ -774,7 +774,7 @@ cp .env backup/.env.bak
 
 ```bash
 # Add to root crontab: crontab -e
-0 3 * * * cd /opt/voltimax-ai-service && docker run --rm -v voltimax-ai-service_mongodb_data:/data -v /opt/voltimax-ai-service/backup:/backup alpine tar czf /backup/mongo-backup-$(date +\%Y\%m\%d).tar.gz -C /data . 2>/dev/null
+0 3 * * * cd <AI_SERVICE_ROOT> && docker run --rm -v <PROJECT>_mongodb_data:/data -v <AI_SERVICE_ROOT>/backup:/backup alpine tar czf /backup/mongo-backup-$(date +\%Y\%m\%d).tar.gz -C /data . 2>/dev/null
 ```
 
 ### How to Restore
@@ -782,18 +782,18 @@ cp .env backup/.env.bak
 #### Restore MongoDB
 
 ```bash
-cd /opt/voltimax-ai-service
+cd <AI_SERVICE_ROOT>
 
 # Stop services
 docker compose -f docker-compose.prod.yml down
 
 # Remove old volume
-docker volume rm voltimax-ai-service_mongodb_data
+docker volume rm <PROJECT>_mongodb_data
 
 # Restore from backup
-docker volume create voltimax-ai-service_mongodb_data
+docker volume create <PROJECT>_mongodb_data
 docker run --rm \
-  -v voltimax-ai-service_mongodb_data:/data \
+  -v <PROJECT>_mongodb_data:/data \
   -v $(pwd)/backup:/backup \
   alpine tar xzf /backup/mongo-backup-YYYYMMDD-HHMMSS.tar.gz -C /data
 
@@ -818,7 +818,7 @@ docker compose -f docker-compose.prod.yml start n8n
 ### Rolling Back Code
 
 ```bash
-cd /opt/voltimax-ai-service
+cd <AI_SERVICE_ROOT>
 
 # View recent commits
 git log --oneline -10
@@ -827,13 +827,13 @@ git log --oneline -10
 git checkout <commit-hash>
 
 # Rebuild and restart
-docker compose -f docker-compose.prod.yml up -d --build voltimax-ai
+docker compose -f docker-compose.prod.yml up -d --build app
 ```
 
 To return to latest:
 ```bash
 git checkout main
-docker compose -f docker-compose.prod.yml up -d --build voltimax-ai
+docker compose -f docker-compose.prod.yml up -d --build app
 ```
 
 ---
@@ -843,20 +843,20 @@ docker compose -f docker-compose.prod.yml up -d --build voltimax-ai
 ### Updating Server B (AI Service)
 
 ```bash
-ssh root@chat.voltimax.de
-cd /opt/voltimax-ai-service
+ssh root@chat.<SHOP_DOMAIN>
+cd <AI_SERVICE_ROOT>
 
 # Pull latest code
 git pull origin main
 
 # Rebuild only the AI service container (MongoDB/N8N unchanged)
-docker compose -f docker-compose.prod.yml up -d --build voltimax-ai
+docker compose -f docker-compose.prod.yml up -d --build app
 
 # Verify
 curl http://localhost:8000/health
 
 # Check logs for errors
-docker compose -f docker-compose.prod.yml logs --tail=50 voltimax-ai
+docker compose -f docker-compose.prod.yml logs --tail=50 app
 ```
 
 **Zero-downtime note:** The FastAPI container restarts in ~5-10 seconds. Active WebSocket connections will drop and clients will auto-reconnect.
@@ -864,20 +864,20 @@ docker compose -f docker-compose.prod.yml logs --tail=50 voltimax-ai
 ### Updating Plugin (Server A)
 
 ```bash
-ssh admin@voltimax.de
-cd /var/www/voltimax.de/src/custom/plugins/voltimax-chat/
+ssh admin@<SHOP_DOMAIN>
+cd /var/www/<SHOP_DOMAIN>/src/custom/plugins/<PLUGIN_DIR>/
 
 # Pull latest
 git pull origin main
 
 # Back in Shopware root
-cd /var/www/voltimax.de/
+cd /var/www/<SHOP_DOMAIN>/
 
 # Refresh plugin registry
 bin/console plugin:refresh
 
 # Update plugin (runs migrations if any)
-bin/console plugin:update VoltimaxChat
+bin/console plugin:update <PLUGIN_NAME>
 
 # Recompile storefront assets
 bin/console theme:compile
@@ -890,20 +890,20 @@ bin/console cache:clear
 
 | Repository | Versioning | Example |
 |-----------|-----------|---------|
-| voltimax-ai-service | Git tags (semver) | `v1.2.0` |
-| voltimax-chat (plugin) | `composer.json` version + Git tags | `1.2.0` |
+| <PROJECT_NAME> | Git tags (semver) | `v1.2.0` |
+| <PLUGIN_REPO> (plugin) | `composer.json` version + Git tags | `1.2.0` |
 
 To deploy a specific version:
 ```bash
 # Server B
 git fetch --tags
 git checkout v1.2.0
-docker compose -f docker-compose.prod.yml up -d --build voltimax-ai
+docker compose -f docker-compose.prod.yml up -d --build app
 
 # Server A (plugin)
 git fetch --tags
 git checkout v1.2.0
-cd /var/www/voltimax.de && bin/console plugin:update VoltimaxChat && bin/console theme:compile && bin/console cache:clear
+cd /var/www/<SHOP_DOMAIN> && bin/console plugin:update <PLUGIN_NAME> && bin/console theme:compile && bin/console cache:clear
 ```
 
 ---
@@ -912,45 +912,45 @@ cd /var/www/voltimax.de && bin/console plugin:update VoltimaxChat && bin/console
 
 | Resource | URL |
 |----------|-----|
-| **Production Shop** | https://voltimax.de |
-| **AI Service (API)** | https://chat.voltimax.de |
-| **Health Check** | https://chat.voltimax.de/health |
-| **Dashboard** | https://chat.voltimax.de/dashboard |
-| **N8N Workflows** | https://chat.voltimax.de/n8n/ |
-| **Mongo Express** | https://chat.voltimax.de/db/ |
-| **LangSmith Traces** | https://eu.smith.langchain.com (project: VoltimaxChat-Groot) |
-| **Zendesk** | https://voltimax.zendesk.com |
-| **Shopware Admin** | https://voltimax.de/admin |
-| **Plugin Config** | https://voltimax.de/admin#/sw/extension/config/VoltimaxChat |
+| **Production Shop** | https://<SHOP_DOMAIN> |
+| **AI Service (API)** | https://chat.<SHOP_DOMAIN> |
+| **Health Check** | https://chat.<SHOP_DOMAIN>/health |
+| **Dashboard** | https://chat.<SHOP_DOMAIN>/dashboard |
+| **N8N Workflows** | https://chat.<SHOP_DOMAIN>/n8n/ |
+| **Mongo Express** | https://chat.<SHOP_DOMAIN>/db/ |
+| **LangSmith Traces** | https://eu.smith.langchain.com (project: <LANGSMITH_PROJECT>) |
+| **Zendesk** | https://<ZENDESK_SUBDOMAIN>.zendesk.com |
+| **Shopware Admin** | https://<SHOP_DOMAIN>/admin |
+| **Plugin Config** | https://<SHOP_DOMAIN>/admin#/sw/extension/config/<PLUGIN_NAME> |
 
 ---
 
 ## Quick Reference Commands
 
-### Server B (chat.voltimax.de)
+### Server B (chat.<SHOP_DOMAIN>)
 
 | Task | Command |
 |------|---------|
 | Start all | `docker compose -f docker-compose.prod.yml up -d` |
 | Stop all | `docker compose -f docker-compose.prod.yml down` |
-| Rebuild AI service | `docker compose -f docker-compose.prod.yml up -d --build voltimax-ai` |
-| View AI logs | `docker compose -f docker-compose.prod.yml logs -f voltimax-ai` |
+| Rebuild AI service | `docker compose -f docker-compose.prod.yml up -d --build app` |
+| View AI logs | `docker compose -f docker-compose.prod.yml logs -f app` |
 | View Mongo logs | `docker compose -f docker-compose.prod.yml logs -f mongo` |
 | Health check | `curl http://localhost:8000/health` |
 | Clear semantic cache | `curl -X POST http://localhost:8000/cache/clear` |
 | Mongo shell | `docker compose -f docker-compose.prod.yml exec mongo mongosh` |
-| Backup MongoDB | `docker run --rm -v voltimax-ai-service_mongodb_data:/data -v $(pwd)/backup:/backup alpine tar czf /backup/mongo-$(date +%Y%m%d).tar.gz -C /data .` |
+| Backup MongoDB | `docker run --rm -v <PROJECT>_mongodb_data:/data -v $(pwd)/backup:/backup alpine tar czf /backup/mongo-$(date +%Y%m%d).tar.gz -C /data .` |
 | Check disk usage | `docker system df` |
 | Prune old images | `docker image prune -a --filter "until=168h"` |
 | Restart Nginx | `systemctl restart nginx` |
 | Renew SSL | `certbot renew --nginx` |
 
-### Server A (voltimax.de)
+### Server A (<SHOP_DOMAIN>)
 
 | Task | Command |
 |------|---------|
 | Plugin refresh | `bin/console plugin:refresh` |
-| Plugin update | `bin/console plugin:update VoltimaxChat` |
+| Plugin update | `bin/console plugin:update <PLUGIN_NAME>` |
 | Theme compile | `bin/console theme:compile` |
 | Clear cache | `bin/console cache:clear` |
 | View logs | `tail -f var/log/prod-$(date +%Y-%m-%d).log` |
