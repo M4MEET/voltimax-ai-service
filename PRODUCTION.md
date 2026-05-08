@@ -303,73 +303,16 @@ rate_limiting:
 
 ### Nginx Configuration
 
-Full example for `chat.<SHOP_DOMAIN>`:
+Nginx is configured as a reverse proxy on the host. Key routing rules:
 
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name chat.<SHOP_DOMAIN>;
+| Path | Proxied to | Notes |
+|------|-----------|-------|
+| `/` | `:8000` (FastAPI) | Main API and dashboard |
+| `/ws/` | `:8000` (WebSocket) | Chat WebSocket with upgrade headers, 24h timeout |
+| `/n8n/` | `:5678` (N8N) | Subpath with rewrite, requires `N8N_PATH=/n8n/` |
+| `/db/` | `:8081` (Mongo Express) | Requires `ME_CONFIG_SITE_BASEURL=/db` |
 
-    ssl_certificate     /etc/letsencrypt/live/chat.<SHOP_DOMAIN>/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/chat.<SHOP_DOMAIN>/privkey.pem;
-
-    # ── Main API (FastAPI) ──────────────────────────────────────
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # ── WebSocket ───────────────────────────────────────────────
-    location /ws {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_read_timeout 86400;   # Keep WS alive for 24h
-        proxy_send_timeout 86400;
-    }
-
-    # ── N8N (subpath) ──────────────────────────────────────────
-    location /n8n/ {
-        proxy_pass http://127.0.0.1:5678/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket support for N8N editor
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-
-        # Rewrite for subpath
-        proxy_redirect off;
-        rewrite ^/n8n/(.*) /$1 break;
-    }
-
-    # ── Mongo Express (subpath) ─────────────────────────────────
-    location /db {
-        proxy_pass http://127.0.0.1:8081/db;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-# ── HTTP → HTTPS redirect ──────────────────────────────────────
-server {
-    listen 80;
-    server_name chat.<SHOP_DOMAIN>;
-    return 301 https://$host$request_uri;
-}
-```
+SSL is managed via Let's Encrypt (certbot). Renew with `certbot renew --nginx`.
 
 ---
 
