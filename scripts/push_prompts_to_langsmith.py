@@ -303,10 +303,12 @@ ALWAYS available (with or without verified order):
   "ticket_lookup" — wants to check status of an existing support ticket, mentions ticket number, asks about ticket update
   "compatibility_check" — wants to find a battery for their specific vehicle, mentions car model, vehicle compatibility, "which battery fits my car", "Batterie für BMW", "welche Batterie passt"
   "batteriepfand" — asking about Batteriepfand, battery deposit return, Pfandrückgabe, Altbatterie zurückgeben, wants to submit Batteriepfand forms
+  "account_info" — asking about their account, profile, login, password reset, address management, personal data, Kundenkonto, Kontoinformationen
 
 If customer does NOT have a verified order:
-  "order_lookup" — talking about their specific order, needs verification first
+  "order_lookup" — talking about their specific order, needs verification first. Also use this when customer asks about payment status, invoice, tracking, refund, or ANY order-specific information WITHOUT a verified order — they need to verify their order first.
   "no_order" — explicitly says they don't have an order, want pre-sales help
+  "clarify" — message is too vague or ambiguous to determine intent (e.g. single words like "status", "hilfe", "problem" without context)
   "none" — not about a specific order, general question (products, shipping times, policies, greetings, etc.)
 
 INTENT CATEGORIES:
@@ -329,11 +331,13 @@ SEARCH QUERY:
 
 RULES:
   - Use action "none" for greetings, thanks, general questions — let the AI respond naturally
-  - Use "escalation_ticket" when customer wants to contact support — even WITHOUT an order
-  - Use "order_lookup" ONLY when customer wants info about THEIR specific placed order
+  - Use "escalation_ticket" ONLY when customer explicitly wants to talk to a human agent, create a support ticket, or says "support kontaktieren" — NOT for account questions or payment questions
+  - Use "order_lookup" when customer asks about payment status, tracking, invoice, refund, or any order-specific info WITHOUT a verified order — they must verify first
   - Use "tracking"/"payment"/"invoice" ONLY when has_order=true
+  - Use "account_info" when customer asks about their account, profile, login, password, address changes, personal data, Kundenkonto — this is NEVER an escalation, always account_info
   - Use "batteriepfand" whenever the customer mentions Batteriepfand, Pfandrückgabe, battery deposit, or Altbatterie return — this is NEVER a product search, always the batteriepfand action
-  - When unsure, prefer action "none"
+  - Use "clarify" when the message is too short, vague, or could mean multiple things (e.g. "hilfe", "status", "problem", single words without context). The AI will ask a friendly follow-up question.
+  - When unsure between two specific actions, prefer "clarify" over guessing wrong
 
 COMPLEXITY (pick one):
   "simple" — greetings, thanks, yes/no answers, single straightforward question
@@ -353,13 +357,13 @@ Customer message: "{{message}}\""""
 
 PROMPTS = {
     "groot-system-prompt": (SYSTEM_PROMPT, "Main Groot system prompt with mustache variables for context injection"),
-    "groot-intent-classifier": (INTENT_CLASSIFIER, "Classifies customer message intent into categories with search query extraction"),
+    "groot-intent-classifier": (INTENT_CLASSIFIER, "Legacy intent classifier — only runs if unified classifier is bypassed"),
     "groot-escalation-detector": (ESCALATION_DETECTOR, "Rates customer frustration 0.0-1.0 for escalation detection"),
     "groot-summarizer": (SUMMARIZER, "Summarizes conversation for Zendesk ticket creation"),
-    "groot-card-router": (CARD_ROUTER, "Routes messages to UI cards based on intent and session context"),
-    "groot-unified-classifier": (UNIFIED_CLASSIFIER, "Single LLM call: card action + intent + search query (replaces card-router + intent-classifier)"),
-    "groot-pre-classifier": (PRE_CLASSIFIER, "Fast binary classifier: is message about a specific order?"),
-    "groot-greeting": (GREETING, "Generates personalized greeting when customer selects a topic"),
+    "groot-unified-classifier": (UNIFIED_CLASSIFIER, "Single LLM call: card action + intent + search query + complexity"),
+    # Removed: groot-card-router (replaced by unified-classifier)
+    # Removed: groot-pre-classifier (replaced by unified-classifier)
+    # Removed: groot-greeting (inline in agents.py)
 }
 
 

@@ -62,7 +62,11 @@ async def detect_escalation(state: ChatState) -> ChatState:
         if msg["role"] == "assistant"
         and any(
             phrase in msg["content"].lower()
-            for phrase in ["i don't have", "i'm not sure", "i cannot", "unable to"]
+            for phrase in [
+                "i don't have", "i'm not sure", "i cannot", "unable to",
+                "kann ich leider nicht", "habe ich leider nicht", "bin ich nicht sicher",
+                "kann ich nicht", "leider nicht möglich", "nicht in der lage",
+            ]
         )
         and "verify" not in msg["content"].lower()
         and "verification" not in msg["content"].lower()

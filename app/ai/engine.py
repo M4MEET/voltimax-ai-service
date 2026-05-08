@@ -61,6 +61,8 @@ class AIEngine:
             state.should_escalate = classification.get("should_escalate", False)
             if state.should_escalate:
                 state.escalation_reason = "user_request"
+            if classification.get("card_context"):
+                state.card_context = classification["card_context"]
 
         # Inject pre-fetched Shopware data so data_fetcher skips its fetch
         if pre_fetched_shopware:
