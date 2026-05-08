@@ -335,13 +335,16 @@ class ConnectionHandler:
                             logger.info(f"Smart routing: overriding card_action={card_action} → none (letting Sonnet respond)")
                             card_action = "none"
 
-                    # Pre-purchase + escalation: let AI offer contact options conversationally
-                    # instead of immediately showing the ticket form
+                    # Pre-purchase + escalation: show ticket form if customer explicitly asks
+                    # Only let AI respond conversationally for vague/indirect escalation hints
                     if card_action == "escalation_ticket" and not has_verified_order:
-                        # Check if customer is confirming ticket creation (follow-up)
-                        _confirm_words = ["yes", "ja", "bitte", "erstell", "create", "ticket"]
-                        _is_confirm = any(w in content_lower for w in _confirm_words)
-                        if not _is_confirm:
+                        _explicit_words = [
+                            "support", "kontakt", "ticket", "erstell", "create",
+                            "hilfe", "agent", "mitarbeiter", "mensch", "human",
+                            "ja", "yes", "bitte", "please",
+                        ]
+                        _is_explicit = any(w in content_lower for w in _explicit_words)
+                        if not _is_explicit:
                             logger.info("Pre-purchase escalation: letting AI respond with contact options")
                             card_action = "none"
 
