@@ -253,7 +253,7 @@ class ConnectionHandler:
                             "fields": [
                                 {"key": "customer_name", "label": "Name", "value": user_claims.get("name", ""), "editable": True, "type": "text"},
                                 {"key": "customer_email", "label": "Order Email", "value": user_claims.get("email", ""), "editable": True, "type": "text"},
-                                {"key": "topic", "label": "Topic", "value": topic_id or "General", "editable": False, "type": "text"},
+                                {"key": "topic", "label": "Betreff", "value": topic_id or "General", "editable": True, "type": "text", "prefix": "Groot Escalation \u2014 "},
                                 {"key": "issue_description", "label": "How can we help?", "value": "", "editable": True, "type": "textarea"},
                             ],
                         }
@@ -416,7 +416,7 @@ class ConnectionHandler:
                                 "fields": [
                                     {"key": "customer_name", "label": "Name", "value": user_claims.get("name", ""), "editable": True, "type": "text"},
                                     {"key": "customer_email", "label": "Order Email", "value": user_claims.get("email", ""), "editable": True, "type": "text"},
-                                    {"key": "topic", "label": "Subject", "value": subject, "editable": False, "type": "text"},
+                                    {"key": "topic", "label": "Betreff", "value": f"{title} \u2014 Order #{verified_order}", "editable": True, "type": "text", "prefix": "Groot Escalation \u2014 "},
                                     {"key": "issue_description", "label": field_label, "value": "", "editable": True, "type": "textarea"},
                                 ],
                             }
@@ -441,7 +441,7 @@ class ConnectionHandler:
                                 "fields": [
                                     {"key": "customer_name", "label": "Name", "value": user_claims.get("name", ""), "editable": True, "type": "text"},
                                     {"key": "customer_email", "label": "Order Email", "value": user_claims.get("email", ""), "editable": True, "type": "text"},
-                                    {"key": "topic", "label": "Betreff", "value": f"Groot Escalation \u2014 Support{order_ref}", "editable": False, "type": "text"},
+                                    {"key": "topic", "label": "Betreff", "value": f"Support{order_ref}", "editable": True, "type": "text", "prefix": "Groot Escalation \u2014 "},
                                     {"key": "issue_description", "label": "Wie k\u00f6nnen wir helfen?", "value": "", "editable": True, "type": "textarea"},
                                 ],
                             }
@@ -738,7 +738,7 @@ class ConnectionHandler:
                                     "fields": [
                                         {"key": "customer_name", "label": "Name", "value": user_claims.get("name", ""), "editable": True, "type": "text"},
                                         {"key": "customer_email", "label": "Order Email", "value": user_claims.get("email", ""), "editable": True, "type": "text"},
-                                        {"key": "topic", "label": "Topic", "value": session_data.get("topic_id", "General") if session_data else "General", "editable": False, "type": "text"},
+                                        {"key": "topic", "label": "Betreff", "value": session_data.get("topic_id", "General") if session_data else "General", "editable": True, "type": "text", "prefix": "Groot Escalation \u2014 "},
                                         {"key": "issue_description", "label": "Describe your issue", "value": "", "editable": True, "type": "textarea"},
                                     ],
                                 }
@@ -862,7 +862,7 @@ class ConnectionHandler:
                                     "fields": [
                                         {"key": "customer_name", "label": "Name", "value": user_claims.get("name", ""), "editable": True, "type": "text"},
                                         {"key": "customer_email", "label": "Order Email", "value": user_claims.get("email", ""), "editable": True, "type": "text"},
-                                        {"key": "topic", "label": "Thema", "value": (session or {}).get("topic_id", "General"), "editable": False, "type": "text"},
+                                        {"key": "topic", "label": "Betreff", "value": (session or {}).get("topic_id", "General"), "editable": True, "type": "text", "prefix": "Groot Escalation \u2014 "},
                                         {"key": "issue_description", "label": "Beschreibung", "value": "", "editable": True, "type": "textarea"},
                                     ],
                                 }
@@ -948,7 +948,7 @@ class ConnectionHandler:
                         "fields": [
                             {"key": "customer_name", "label": "Name", "value": user_claims.get("name", ""), "editable": True, "type": "text"},
                             {"key": "customer_email", "label": "Order Email", "value": user_claims.get("email", ""), "editable": True, "type": "text"},
-                            {"key": "topic", "label": "Topic", "value": session.get("topic_id", "General") if session else "General", "editable": False, "type": "text"},
+                            {"key": "topic", "label": "Betreff", "value": session.get("topic_id", "General") if session else "General", "editable": True, "type": "text", "prefix": "Groot Escalation \u2014 "},
                             {"key": "issue_description", "label": "Issue Description", "value": "", "editable": True, "type": "textarea"},
                         ],
                     }
@@ -1000,10 +1000,13 @@ class ConnectionHandler:
                             form_email = fields.get("customer_email", "").strip()
                             form_name = fields.get("customer_name", "").strip()
                             form_description = fields.get("issue_description", "").strip()
+                            form_topic = fields.get("topic", "").strip()
                             if form_email:
                                 await self.chat_manager.update_session_email(session_id, form_email)
                             if form_name:
                                 await self.chat_manager.update_session_field(session_id, "customer_name", form_name)
+                            if form_topic:
+                                await self.chat_manager.update_session_field(session_id, "ticket_subject", f"Groot Escalation \u2014 {form_topic}")
                             # Save the customer's description as a message so it appears in transcript
                             if form_description:
                                 await self.chat_manager.add_message(

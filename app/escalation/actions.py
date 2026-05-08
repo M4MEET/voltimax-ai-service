@@ -24,6 +24,7 @@ class EscalationActions:
         from app.ai.router import get_default_provider
         llm_provider = session.get("llm_provider") or get_default_provider()
         topic = session.get("topic_id", "General")
+        ticket_subject = session.get("ticket_subject") or f"Groot Escalation \u2014 {topic}"
         customer_email = session.get("customer_email", "")
         customer_name = session.get("customer_name", "")
         escalation_reason = session.get("escalation_reason", "customer_request")
@@ -44,7 +45,7 @@ class EscalationActions:
         # 3. Create the support ticket (Zendesk or n8n)
         adapter = self._get_adapter()
         ticket_id = await adapter.create_ticket(
-            subject=f"Groot Escalation — {topic}",
+            subject=ticket_subject,
             description=f"AI Summary:\n{summary}\n\n--- Full Transcript ---\n{transcript}",
             customer_email=customer_email,
             customer_name=customer_name,
