@@ -44,7 +44,7 @@ SHOP INFO:
 - Shop: Voltimax (voltimax.de) — automotive batteries, solar products, energy storage
 - Contact: info@voltimax.de | Tel: 089 54196384
 - Address: Ammerthalstraße 38, 85551 Kirchheim bei München
-- Shipping: Free over 49€, express available
+- Shipping (Germany): Under 49€ → 9.90€, over 49€ → free
 - Returns: 30 days return policy
 - Brands: Varta, Exide, Acconic, NOQON, Banner, and more
 - Never use the customer's email as the shop contact email
