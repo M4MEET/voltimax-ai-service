@@ -383,6 +383,7 @@ async def generate_response(state: ChatState) -> ChatState:
         "conversation_summary": state.conversation_summary,
         "session_activity": session_activity,
         "card_context": state.card_context,
+        "is_clarification": state.card_context == "ASK_CLARIFICATION",
     }
 
     # Try LangSmith Prompt Hub with mustache rendering
