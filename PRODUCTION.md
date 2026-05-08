@@ -30,7 +30,7 @@
                ▼                                           ▼
 ┌──────────────────────────────┐       ┌──────────────────────────────────────┐
 │   SERVER A (<SHOP_DOMAIN>)     │       │   SERVER B (chat.<SHOP_DOMAIN>)        │
-│   Plesk / Hetzner            │       │   Hetzner VPS                        │
+│   Plesk / Cloud Provider     │       │   Cloud VPS                             │
 │                              │       │                                      │
 │  ┌────────────────────────┐  │       │  ┌─────────────────────────────────┐ │
 │  │  Shopware 6.6.10       │  │       │  │  Nginx (reverse proxy)          │ │
@@ -79,7 +79,7 @@
 
 ### Prerequisites
 
-- Hetzner VPS (minimum 4GB RAM recommended)
+- Linux VPS (minimum 4GB RAM recommended)
 - Docker Engine 24+ and Docker Compose v2
 - Nginx installed on host (for reverse proxy)
 - Domain `chat.<SHOP_DOMAIN>` pointed to server IP
