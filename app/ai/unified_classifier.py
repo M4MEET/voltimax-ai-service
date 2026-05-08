@@ -78,8 +78,9 @@ RULES:
   - Use "tracking"/"payment"/"invoice" ONLY when has_order=true
   - Use "account_info" when customer asks about their account, profile, login, password, address changes, personal data, Kundenkonto, Kontoinformationen — this is NEVER an escalation, always account_info
   - Use "batteriepfand" whenever the customer mentions Batteriepfand, Pfandrückgabe, battery deposit, or Altbatterie return — this is NEVER a product search, always the batteriepfand action
-  - Use "clarify" when the message is too short, vague, or could mean multiple things (e.g. "hilfe", "status", "problem", single words without context). The AI will ask a friendly follow-up question.
-  - When unsure between two specific actions, prefer "clarify" over guessing wrong
+  - Use "clarify" ONLY when the message is genuinely ambiguous with no topic hint (e.g. just "hi", "help" with zero context). Do NOT clarify when the message contains a clear topic word like "Bestellstatus", "Produktsuche", "Retoure", "Rechnung", "Batteriepfand", "Ticket", "Konto" — these always have a clear action even if short
+  - Messages with emoji prefixes (📦, 🔋, ↩️, etc.) are suggestion chip clicks — treat the text after the emoji as the intent, never clarify these
+  - When unsure between two specific actions, prefer the more specific action over clarify
 
 COMPLEXITY (pick one):
   "simple" — greetings, thanks, yes/no answers, single straightforward question
