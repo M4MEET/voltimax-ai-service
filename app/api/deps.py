@@ -25,9 +25,9 @@ async def get_current_user(authorization: str = Header(None)) -> dict:
 
 
 async def verify_dashboard_auth(x_dashboard_key: str = Header(None)) -> None:
-    """Simple key-based auth for the analytics dashboard API."""
-    config = get_config()
-    expected = config.shopware.api_key  # Reuse shared key for simplicity
+    """Key-based auth for the analytics dashboard API."""
+    import os
+    expected = os.getenv("VOLTIMAX_DASHBOARD_KEY") or get_config().shopware.api_key
 
     if not x_dashboard_key or x_dashboard_key != expected:
         raise HTTPException(
