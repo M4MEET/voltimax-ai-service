@@ -996,10 +996,16 @@ class ConnectionHandler:
                             fields = msg.fields or {}
                             form_email = fields.get("customer_email", "").strip()
                             form_name = fields.get("customer_name", "").strip()
+                            form_description = fields.get("issue_description", "").strip()
                             if form_email:
                                 await self.chat_manager.update_session_email(session_id, form_email)
                             if form_name:
                                 await self.chat_manager.update_session_field(session_id, "customer_name", form_name)
+                            # Save the customer's description as a message so it appears in transcript
+                            if form_description:
+                                await self.chat_manager.add_message(
+                                    session_id, MessageRole.USER, form_description
+                                )
 
                             from app.escalation.actions import EscalationActions
                             actions = EscalationActions()
