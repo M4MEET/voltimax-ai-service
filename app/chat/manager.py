@@ -191,11 +191,18 @@ class ChatManager:
             {"$set": {"order_number": order_number, "updated_at": datetime.utcnow()}},
         )
 
-    async def update_session_email(self, session_id: str, order_email: str) -> None:
-        """Store the verified order email (may differ from login email)."""
+    async def update_session_email(self, session_id: str, email: str) -> None:
+        """Update the customer email on the session."""
         await sessions_collection().update_one(
             {"id": session_id},
-            {"$set": {"order_email": order_email, "updated_at": datetime.utcnow()}},
+            {"$set": {"customer_email": email, "updated_at": datetime.utcnow()}},
+        )
+
+    async def update_session_field(self, session_id: str, field: str, value) -> None:
+        """Update a single field on the session document."""
+        await sessions_collection().update_one(
+            {"id": session_id},
+            {"$set": {field: value, "updated_at": datetime.utcnow()}},
         )
 
     async def add_session_event(self, session_id: str, event_type: str, detail: str = "") -> None:

@@ -992,6 +992,15 @@ class ConnectionHandler:
                 elif msg.type == "confirm_action" and session_id and msg.action:
                     if msg.action == "create_ticket":
                         try:
+                            # Update session with form fields before creating ticket
+                            fields = msg.fields or {}
+                            form_email = fields.get("customer_email", "").strip()
+                            form_name = fields.get("customer_name", "").strip()
+                            if form_email:
+                                await self.chat_manager.update_session_email(session_id, form_email)
+                            if form_name:
+                                await self.chat_manager.update_session_field(session_id, "customer_name", form_name)
+
                             from app.escalation.actions import EscalationActions
                             actions = EscalationActions()
                             result = await actions.create_ticket(session_id)
