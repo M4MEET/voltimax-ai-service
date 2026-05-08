@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 import httpx
 
 from app.config import get_config
 from app.escalation.ticket.base import BaseTicketAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class ZendeskAdapter(BaseTicketAdapter):
@@ -38,12 +41,14 @@ class ZendeskAdapter(BaseTicketAdapter):
                 "subject": subject,
                 "description": full_description,
                 "requester": {
-                    "name": customer_name,
-                    "email": customer_email,
+                    "name": customer_name or "Guest",
+                    "email": customer_email or "anonymous@voltimax.de",
                 },
                 "tags": ["voltimax-chat", "ai-escalation"],
             }
         }
+
+        logger.info(f"Creating Zendesk ticket: subject={subject!r}, requester={customer_name!r} <{customer_email!r}>")
 
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.post(
@@ -51,9 +56,12 @@ class ZendeskAdapter(BaseTicketAdapter):
                 json=payload,
                 auth=self._auth(),
             )
+            if response.status_code != 201:
+                logger.error(f"Zendesk ticket failed: {response.status_code} — {response.text[:500]}")
             response.raise_for_status()
             data = response.json()
 
+        logger.info(f"Zendesk ticket created: #{data['ticket']['id']}")
         return str(data["ticket"]["id"])
 
     async def get_ticket(self, ticket_id: str, requester_email: str) -> dict | None:
