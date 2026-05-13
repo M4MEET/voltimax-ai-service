@@ -596,6 +596,27 @@ class ConnectionHandler:
                         classification["needs_shopware_data"] = False
                         classification["card_context"] = "ASK_CLARIFICATION"
 
+                    # ── Repeated closing messages: skip AI, show close card directly ──
+                    if card_action == "none":
+                        _msg_lower_check = (msg.content or "").strip().lower()
+                        _close_words = ["danke", "dankeschön", "vielen dank", "thanks", "thank you",
+                                        "cheers", "tschüss", "bye", "goodbye", "auf wiedersehen",
+                                        "passt so", "alles gut", "alles klar", "perfekt"]
+                        _is_closing_msg = any(p in _msg_lower_check for p in _close_words)
+                        _session_events = (session_data or {}).get("events", [])
+                        _already_closed = any(e.get("type") == "close_card_shown" for e in _session_events)
+                        _msg_count = (session_data or {}).get("message_count", 0)
+
+                        if _is_closing_msg and (_already_closed or _msg_count >= 6):
+                            await self.chat_manager.add_message(session_id, MessageRole.USER, msg.content)
+                            from app.ai.card_builder import build_close_chat_card
+                            await self._send_ws(websocket, OutgoingMessage(
+                                type="info_card", info_card=build_close_chat_card(),
+                            ))
+                            if not _already_closed:
+                                await self.chat_manager.add_session_event(session_id, "close_card_shown", "End-of-conversation detected")
+                            continue
+
                     # card_action == "none" or "clarify" \u2192 fall through to AI pipeline
 
                     rl = get_rate_limiter()
@@ -914,6 +935,7 @@ class ConnectionHandler:
                                 await self._send_ws(websocket, OutgoingMessage(
                                     type="info_card", info_card=build_close_chat_card(),
                                 ))
+                                await self.chat_manager.add_session_event(session_id, "close_card_shown", "End-of-conversation detected")
                                 _card_shown = True
 
                         # ── Proactive suggestions based on conversation context ──
