@@ -772,7 +772,7 @@ def build_no_order_card() -> dict:
     }
 
 
-def build_batteriepfand_download_card(server_b_url: str = "http://localhost:8000") -> dict:
+def build_batteriepfand_download_card(server_b_url: str = "") -> dict:
     """Card with Batteriepfand info, steps, and downloadable forms."""
     return {
         "card_type": "dynamic",

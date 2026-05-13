@@ -526,8 +526,9 @@ class ConnectionHandler:
                                     "Bitte lade sie herunter, f\u00fclle sie aus und komm dann zur\u00fcck \u2014 "
                                     "ich helfe dir beim Hochladen und Einreichen!"
                                 )
+                                _server_url = get_config().server.public_url
                                 await self._send_ai_card(websocket, session_id, intro,
-                                    build_batteriepfand_download_card(server_b_url="http://localhost:8000"))
+                                    build_batteriepfand_download_card(server_b_url=_server_url))
                             await self.chat_manager.add_session_event(
                                 session_id, "batteriepfand",
                                 "upload form shown" if _wants_upload else "download forms shown",
@@ -659,7 +660,7 @@ class ConnectionHandler:
                                             pdocs = await doc_client.get_product_documents(best_product["id"])
                                             if pdocs:
                                                 _pre_fetched_doc_card = build_document_card(
-                                                    pdocs, "Produktdokumente", server_b_url="http://localhost:8000",
+                                                    pdocs, "Produktdokumente", server_b_url=get_config().server.public_url,
                                                 )
                                     except Exception:
                                         pass

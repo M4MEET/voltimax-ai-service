@@ -10,6 +10,7 @@ from pydantic import BaseModel
 class ServerConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8000
+    public_url: str = "http://localhost:8000"
     cors_origins: list[str] = ["*"]
     debug: bool = False
 
