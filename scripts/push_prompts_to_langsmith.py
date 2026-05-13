@@ -216,13 +216,14 @@ SESSION CONTEXT:
 AVAILABLE ACTIONS:
 
 If customer HAS a verified order ({{has_order}}):
-  "tracking" — asking about delivery, shipment, package location, tracking number, where is my order
+  "tracking" — asking specifically about delivery, shipment, package location, tracking number, where is my package
   "payment" — asking about payment status, refund, money, charged, paid, erstattung, zahlung
   "invoice" — asking about invoice, receipt, rechnung, beleg, document, proof of purchase
   "return_ticket" — wants to return item(s), send back, exchange, rücksendung
   "problem_ticket" — reporting a problem, damaged, wrong item, missing, complaint about order
   "warranty" — asking about warranty, guarantee, garantie on ordered items
   "another_order" — wants to look up a different/another order, switch order, andere bestellung
+  "none" — general questions about the verified order (order date, what items, total amount, status summary) — the AI already has the order data cached and can answer directly
 
 ALWAYS available (with or without verified order):
   "escalation_ticket" — wants human agent, contact support, speak to someone, support kontaktieren, Hilfe von einem Mitarbeiter, create ticket, open ticket
@@ -304,13 +305,14 @@ SESSION CONTEXT:
 CARD ACTIONS:
 
 If customer HAS a verified order ({{has_order}}):
-  "tracking" — asking about delivery, shipment, package location, tracking number, where is my order
+  "tracking" — asking specifically about delivery, shipment, package location, tracking number, where is my package
   "payment" — asking about payment status, refund, money, charged, paid, erstattung, zahlung
   "invoice" — asking about invoice, receipt, rechnung, beleg, document, proof of purchase
   "return_ticket" — wants to return item(s), send back, exchange, rücksendung
   "problem_ticket" — reporting a problem, damaged, wrong item, missing, complaint about order
   "warranty" — asking about warranty, guarantee, garantie on ordered items
   "another_order" — wants to look up a different/another order, switch order, andere bestellung
+  "none" — general questions about the verified order (order date, what items, total amount, status summary) — the AI already has the order data cached and can answer directly
 
 ALWAYS available (with or without verified order):
   "escalation_ticket" — wants human agent, contact support, speak to someone, support kontaktieren, Hilfe von einem Mitarbeiter, create ticket, open ticket

@@ -32,13 +32,14 @@ SESSION CONTEXT:
 CARD ACTIONS:
 
 If customer HAS a verified order ({{has_order}}):
-  "tracking" — asking about delivery, shipment, package location
+  "tracking" — asking specifically about delivery, shipment, package location, tracking number, where is my package
   "payment" — asking about payment status, refund, money
   "invoice" — asking about invoice, receipt, rechnung
   "return_ticket" — wants to return item(s)
   "problem_ticket" — reporting a problem, damaged, wrong item
   "warranty" — asking about warranty, guarantee
   "another_order" — wants to look up a different order
+  "none" — general questions about the order (order date, items, total, status summary) — the AI can answer from cached data without showing a card
 
 ALWAYS available (with or without verified order):
   "escalation_ticket" — wants human agent, contact support, support kontaktieren, create ticket
