@@ -348,9 +348,31 @@ class ConnectionHandler:
                             logger.info("Pre-purchase escalation: letting AI respond with contact options")
                             card_action = "none"
 
-                    # "Yes, request invoice" is a direct choice — handle without router
-                    if content_lower.strip() == "yes, request invoice":
-                        card_action = "invoice"
+                    # Invoice request — escalate to support for invoice generation
+                    if content_lower.strip() in ("yes, request invoice", "ja, rechnung anfordern"):
+                        await self.chat_manager.add_message(session_id, MessageRole.USER, msg.content)
+                        intro = f"Ich erstelle ein Support-Ticket f\u00fcr die Rechnungsanforderung zu Bestellung **#{verified_order}**. Unser Team wird die Rechnung erstellen und dir zusenden."
+                        confirmation = {
+                            "action": "create_ticket",
+                            "title": "Rechnung anfordern",
+                            "summary": f"Rechnungsanforderung f\u00fcr Bestellung #{verified_order}.",
+                            "fields": [
+                                {"key": "customer_name", "label": "Name", "value": user_claims.get("name", ""), "editable": True, "type": "text"},
+                                {"key": "customer_email", "label": "E-Mail", "value": user_claims.get("email") or "", "editable": True, "type": "text"},
+                                {"key": "topic", "label": "Betreff", "value": f"Rechnung \u2014 Order #{verified_order}", "editable": True, "type": "text", "prefix": "Groot Escalation \u2014 "},
+                                {"key": "issue_description", "label": "Anmerkung", "value": f"Bitte Rechnung f\u00fcr Bestellung #{verified_order} erstellen.", "editable": True, "type": "textarea"},
+                            ],
+                        }
+                        import asyncio as _aio
+                        await self._send_ws(websocket, OutgoingMessage(type="typing"))
+                        await _aio.sleep(0.8)
+                        ai_msg = await self.chat_manager.add_message(session_id, MessageRole.ASSISTANT, intro)
+                        await self._send_ws(websocket, OutgoingMessage(
+                            type="ai_card", content=intro, message_id=ai_msg.id,
+                            confirmation=confirmation,
+                        ))
+                        await self._send_ws(websocket, OutgoingMessage(type="play_sound", message="incoming"))
+                        continue
 
                     if card_action != "none":
                         await self.chat_manager.add_message(session_id, MessageRole.USER, msg.content)
@@ -387,10 +409,10 @@ class ConnectionHandler:
                                         f"Hier sind die Dokumente f\u00fcr Bestellung **#{verified_order}**:",
                                         build_invoice_card(verified_order, docs))
                                 else:
-                                    no_doc_msg = f"No documents available for order #{verified_order} yet. Would you like me to request one?"
+                                    no_doc_msg = f"F\u00fcr Bestellung **#{verified_order}** sind noch keine Dokumente verf\u00fcgbar. Soll ich eine Rechnung f\u00fcr dich anfordern?"
                                     ai_msg = await self.chat_manager.add_message(session_id, MessageRole.ASSISTANT, no_doc_msg)
                                     await self._send_ws(websocket, OutgoingMessage(type="message", content=no_doc_msg, message_id=ai_msg.id))
-                                    await self._send_ws(websocket, OutgoingMessage(type="choices", choices=["Yes, request invoice", "No thanks"]))
+                                    await self._send_ws(websocket, OutgoingMessage(type="choices", choices=["Ja, Rechnung anfordern", "Nein, danke"]))
                             except Exception as e:
                                 logger.error(f"Invoice fetch failed: {e}")
                             continue
