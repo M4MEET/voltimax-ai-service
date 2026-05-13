@@ -25,6 +25,7 @@ export default function Knowledge() {
   const [qaAnswer, setQaAnswer] = useState('');
   const [qaAdding, setQaAdding] = useState(false);
   const [qaMessage, setQaMessage] = useState('');
+  const [qaError, setQaError] = useState('');
 
   function fetchStatus() {
     setLoading(true);
@@ -37,9 +38,10 @@ export default function Knowledge() {
 
   function fetchQaPairs() {
     setQaLoading(true);
+    setQaError('');
     apiFetch<QaPair[]>('/api/knowledge/qa-pairs')
       .then(setQaPairs)
-      .catch(() => {})
+      .catch((err) => setQaError(err instanceof Error ? err.message : 'Failed to load Q&A pairs'))
       .finally(() => setQaLoading(false));
   }
 
@@ -338,7 +340,7 @@ export default function Knowledge() {
             </div>
           )}
 
-          <form onSubmit={handleAddQa} className="flex items-end gap-3 mb-4">
+          <form onSubmit={handleAddQa} className="flex flex-col sm:flex-row items-end gap-3 mb-4">
             <div className="flex-1">
               <label className="block text-xs font-medium text-gray-500 mb-1">Question</label>
               <input
@@ -370,6 +372,14 @@ export default function Knowledge() {
           </form>
         </div>
 
+        {qaError && (
+          <div className="px-6">
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600 flex items-center gap-2 animate-fade-in">
+              <AlertCircle size={14} />
+              {qaError}
+            </div>
+          </div>
+        )}
         {qaLoading ? (
           <div className="px-6 pb-6">
             <div className="h-24 bg-gray-50 rounded-lg animate-pulse" />
