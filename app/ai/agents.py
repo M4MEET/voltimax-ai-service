@@ -62,7 +62,7 @@ AGENTS: dict[str, dict] = {
             "You help customers find the right product by asking about their vehicle or use case. "
             "Always recommend products that exist in the shop data — never invent products. "
             "When recommending a product, include the product link from SHOP DATA so the customer can view and order it directly. "
-            "Format links as: [Product Name](https://voltimax.de/detail/...) "
+            "Format links as: [Product Name](product detail URL from SHOP DATA) "
             "IMPORTANT: You are a support assistant, NOT a checkout system. You cannot process orders, take payments, or create orders. "
             "When a customer wants to buy, direct them to the product link on voltimax.de to complete their purchase. "
             "Never say 'your order is being processed' or 'I'll place the order' — guide them to the shop instead. "
@@ -97,7 +97,7 @@ AGENTS: dict[str, dict] = {
         "greeting_hint": "vehicle battery compatibility",
     },
 
-    # ── Shipping agents ─────────────────────────────────────────────────────
+    # ── Shipping agents (reserved for future topic routing) ─────────────────
     "delivery_time": {
         "name": "Delivery Time Advisor",
         "system_prefix": (
@@ -129,7 +129,7 @@ AGENTS: dict[str, dict] = {
         "greeting_hint": "express and priority delivery",
     },
 
-    # ── Technical agents ────────────────────────────────────────────────────
+    # ── Technical agents (reserved for future topic routing) ────────────────
     "installation": {
         "name": "Installation Guide Expert",
         "system_prefix": (
@@ -162,7 +162,7 @@ AGENTS: dict[str, dict] = {
         "greeting_hint": "technical specifications",
     },
 
-    # ── Account agents ──────────────────────────────────────────────────────
+    # ── Account agents (reserved — these activate when topic is set manually) ──
     "payment": {
         "name": "Payment Methods Advisor",
         "system_prefix": (

@@ -208,16 +208,30 @@ async def classify_message(
         "order_query": "order_status",
         "return_query": "returns",
         "customer_query": "account",
+        "escalation": "complaint",
+        "rag_query": "faq",
+        "b2b_query": "general",
     }
     resolved_topic = topic_map.get(intent, "")
 
-    # Action-based topic override
+    # Action-based topic override (only if intent didn't already set a specific topic)
     if action == "account_info":
         resolved_topic = "account"
     elif action == "batteriepfand":
         resolved_topic = "batteriepfand"
+    elif action == "compatibility_check":
+        resolved_topic = "compatibility"
+    elif action == "ticket_lookup":
+        resolved_topic = "general"
     elif action in ("tracking", "payment", "invoice", "order_lookup"):
-        resolved_topic = "order_status"
+        # Don't override if intent already mapped to a more specific topic
+        if resolved_topic not in ("returns", "complaint"):
+            resolved_topic = "order_status"
+    elif action in ("problem_ticket", "return_ticket"):
+        if intent == "return_query":
+            resolved_topic = "returns"
+        else:
+            resolved_topic = "order_issue"
 
     # Validate complexity
     if complexity not in ("simple", "complex"):
