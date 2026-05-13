@@ -1108,10 +1108,12 @@ class ConnectionHandler:
                     )
 
                 elif msg.type == "input_response" and session_id and msg.input_field:
-                    if msg.input_field in ("order_number", "order_verify") and msg.input_value:
+                    if msg.input_field in ("order_number", "order_verify") and (msg.input_value or (msg.fields or {}).get("order_number")):
                         # Verify order — order number + postcode only (no email filter)
-                        order_number = msg.input_value.strip().lstrip("#")
-                        postcode = (msg.fields or {}).get("postcode", "").strip()
+                        # Prefer explicit field over input_value (card forms may swap field order)
+                        _fields = msg.fields or {}
+                        order_number = (_fields.get("order_number") or msg.input_value or "").strip().lstrip("#")
+                        postcode = _fields.get("postcode", "").strip()
 
                         if not postcode:
                             verify_msg = "Please enter your billing postcode for verification."
