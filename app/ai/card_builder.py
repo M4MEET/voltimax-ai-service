@@ -727,16 +727,16 @@ def build_order_lookup_card() -> dict:
         "card_type": "dynamic",
         "style": "blue",
         "icon": "\U0001F50D",
-        "title": "Look up your order",
-        "description": "Enter your order number and billing postcode to access your order details.",
+        "title": "Bestellung suchen",
+        "description": "Gib deine Bestellnummer und Rechnungs-PLZ ein, um deine Bestellung aufzurufen.",
         "form": {
             "field": "order_verify",
             "fields": [
-                {"name": "order_number", "label": "Order number", "placeholder": "#...", "type": "text"},
-                {"name": "postcode", "label": "Billing postcode", "placeholder": "e.g. 10115", "type": "text"},
+                {"name": "order_number", "label": "Bestellnummer", "placeholder": "z.B. 10324", "type": "text"},
+                {"name": "postcode", "label": "Rechnungs-PLZ", "placeholder": "z.B. 81549", "type": "text"},
             ],
             "action": "verify_order",
-            "submit_label": "Look up \u2192",
+            "submit_label": "Bestellung suchen \u2192",
         },
         "meta_actions": [
             "Ich habe keine Bestellung",
