@@ -229,23 +229,54 @@ async def get_prompts() -> dict:
 
     from app.ai.prompt_hub import _cache, _pull_raw
 
-    prompts = [
-        {"name": "groot-system-prompt", "type": "mustache", "used_by": "Response Generator", "description": "Main AI persona, shop context, instructions", "active": True},
-        {"name": "groot-unified-classifier", "type": "mustache", "used_by": "Unified Classifier", "description": "Card action + intent + search query + complexity in one call", "active": True},
-        {"name": "groot-intent-classifier", "type": "plain", "used_by": "Intent Classifier (legacy)", "description": "Fallback intent classifier — only runs if unified classifier is bypassed", "active": False},
-        {"name": "groot-escalation-detector", "type": "plain", "used_by": "Escalation Detector", "description": "Rates customer frustration 0.0-1.0 for auto-escalation", "active": True},
-        {"name": "groot-summarizer", "type": "plain", "used_by": "Ticket Summarizer", "description": "Summarizes conversation for Zendesk ticket creation", "active": True},
-    ]
+    # Known prompts with metadata
+    known_prompts = {
+        "groot-system-prompt": {"type": "mustache", "used_by": "Response Generator", "description": "Main AI persona, shop context, instructions", "active": True},
+        "groot-unified-classifier": {"type": "mustache", "used_by": "Unified Classifier", "description": "Card action + intent + search query + complexity in one call", "active": True},
+        "groot-intent-classifier": {"type": "plain", "used_by": "Intent Classifier (legacy)", "description": "Fallback intent classifier — only runs if unified classifier is bypassed", "active": False},
+        "groot-escalation-detector": {"type": "plain", "used_by": "Escalation Detector", "description": "Rates customer frustration 0.0-1.0 for auto-escalation", "active": True},
+        "groot-summarizer": {"type": "plain", "used_by": "Ticket Summarizer", "description": "Summarizes conversation for Zendesk ticket creation", "active": True},
+    }
+
     endpoint = os.getenv("LANGCHAIN_ENDPOINT", "https://eu.api.smith.langchain.com")
     enabled = bool(os.getenv("LANGCHAIN_API_KEY"))
 
-    for p in prompts:
-        cached = p["name"] in _cache
-        p["cached"] = cached
-        p["status"] = "cached" if cached else "available"
-        cached_content = _cache.get(p["name"])
-        p["char_count"] = len(cached_content) if cached_content else 0
-        p["preview"] = (cached_content[:200] + "...") if cached_content and len(cached_content) > 200 else (cached_content or "")
+    # Try to fetch all prompts from LangSmith
+    langsmith_names: list[str] = []
+    if enabled:
+        try:
+            from langsmith import Client
+            client = Client()
+            for prompt in client.list_prompts():
+                name = prompt.repo_handle if hasattr(prompt, 'repo_handle') else (prompt.name if hasattr(prompt, 'name') else str(prompt))
+                if name and name.startswith("groot-"):
+                    langsmith_names.append(name)
+        except Exception as e:
+            logger.warning(f"Failed to list LangSmith prompts: {e}")
+
+    # Merge: known prompts + any extra from LangSmith
+    all_names = list(known_prompts.keys())
+    for name in langsmith_names:
+        if name not in all_names:
+            all_names.append(name)
+
+    prompts = []
+    for name in all_names:
+        meta = known_prompts.get(name, {"type": "unknown", "used_by": "—", "description": "Prompt from LangSmith", "active": True})
+        cached_entry = _cache.get(name)
+        cached_content = cached_entry[1] if cached_entry else None
+        prompts.append({
+            "name": name,
+            "type": meta["type"],
+            "used_by": meta["used_by"],
+            "description": meta["description"],
+            "active": meta["active"],
+            "cached": cached_content is not None,
+            "status": "cached" if cached_content else ("in LangSmith" if name in langsmith_names else "available"),
+            "char_count": len(cached_content) if cached_content else 0,
+            "preview": (cached_content[:500] + "...") if cached_content and len(cached_content) > 500 else (cached_content or ""),
+            "in_langsmith": name in langsmith_names,
+        })
 
     return {"prompts": prompts, "endpoint": endpoint, "enabled": enabled}
 

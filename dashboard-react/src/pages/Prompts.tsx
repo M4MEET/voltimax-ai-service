@@ -16,6 +16,7 @@ interface Prompt {
   description: string;
   char_count: number;
   preview: string;
+  in_langsmith: boolean;
 }
 
 interface PromptsResponse {
@@ -161,6 +162,7 @@ export default function Prompts() {
                   <Badge color={prompt.type === 'mustache' ? 'purple' : 'blue'}>{prompt.type}</Badge>
                   <Badge color={prompt.active ? 'green' : 'gray'}>{prompt.active ? 'active' : 'legacy'}</Badge>
                   <Badge color={prompt.cached ? 'green' : 'yellow'}>{prompt.cached ? 'cached' : 'not cached'}</Badge>
+                  {prompt.in_langsmith && <Badge color="blue">in LangSmith</Badge>}
                   {prompt.char_count > 0 && (
                     <span className="text-xs text-gray-400">{prompt.char_count.toLocaleString()} chars</span>
                   )}
@@ -211,7 +213,7 @@ export default function Prompts() {
               {selectedPrompt.preview}
             </div>
             <p className="text-xs text-gray-400">
-              This is a cached preview (first 200 chars). Edit the full prompt in LangSmith.
+              This is a cached preview (first 500 chars). Edit the full prompt in LangSmith.
             </p>
           </div>
         )}
