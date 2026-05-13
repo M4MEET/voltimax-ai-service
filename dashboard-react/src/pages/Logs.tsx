@@ -3,6 +3,7 @@ import { Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucid
 import { apiFetch } from '../api';
 import type { LogsResponse, LogEntry } from '../types';
 import Badge from '../components/Badge';
+import Modal from '../components/Modal';
 import { TableSkeleton } from '../components/Skeleton';
 import clsx from 'clsx';
 
@@ -25,6 +26,7 @@ export default function Logs() {
   const [hours, setHours] = useState('24');
   const [page, setPage] = useState(0);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -124,12 +126,13 @@ export default function Logs() {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Level</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Logger</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Message</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 w-10" />
                 </tr>
               </thead>
               <tbody>
                 {data.logs.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                    <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
                       No logs found
                     </td>
                   </tr>
@@ -141,6 +144,7 @@ export default function Logs() {
                       index={i}
                       expanded={expandedRows.has(i)}
                       onToggle={() => toggleRow(i)}
+                      onView={() => setSelectedLog(log)}
                     />
                   ))
                 )}
@@ -174,11 +178,70 @@ export default function Logs() {
           )}
         </div>
       ) : null}
+
+      <Modal
+        open={selectedLog !== null}
+        onClose={() => setSelectedLog(null)}
+        title="Log Details"
+      >
+        {selectedLog && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+              <span className="font-medium text-gray-500">Timestamp</span>
+              <span className="text-gray-900 font-mono">
+                {new Date(selectedLog.timestamp).toLocaleString('en-US', {
+                  weekday: 'short',
+                  year: 'numeric',
+                  month: 'short',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })}
+              </span>
+
+              <span className="font-medium text-gray-500">Level</span>
+              <span><Badge color={levelColors[selectedLog.level] || 'gray'}>{selectedLog.level}</Badge></span>
+
+              <span className="font-medium text-gray-500">Logger</span>
+              <span className="text-gray-900 font-mono text-xs">{selectedLog.logger}</span>
+
+              <span className="font-medium text-gray-500">Module</span>
+              <span className="text-gray-900 font-mono text-xs">{selectedLog.module}</span>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Message</h3>
+              <p className="text-sm text-gray-800 whitespace-pre-wrap break-words bg-gray-50 rounded-lg p-3">
+                {selectedLog.message}
+              </p>
+            </div>
+
+            {selectedLog.traceback && (
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Traceback</h3>
+                <pre className="bg-gray-900 text-gray-200 text-xs p-4 rounded-lg overflow-x-auto max-h-80 font-mono whitespace-pre-wrap">
+                  {selectedLog.traceback}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
 
-function LogRow({ log, index, expanded, onToggle }: { log: LogEntry; index: number; expanded: boolean; onToggle: () => void }) {
+function EyeIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function LogRow({ log, index, expanded, onToggle, onView }: { log: LogEntry; index: number; expanded: boolean; onToggle: () => void; onView: () => void }) {
   return (
     <>
       <tr className={clsx('border-b border-gray-50 hover:bg-indigo-50/30 transition-colors', index % 2 === 1 && 'bg-gray-50/50')}>
@@ -197,10 +260,19 @@ function LogRow({ log, index, expanded, onToggle }: { log: LogEntry; index: numb
         </td>
         <td className="px-4 py-2.5 text-xs text-gray-500 font-mono">{log.logger}</td>
         <td className="px-4 py-2.5 text-gray-700 max-w-md truncate">{log.message}</td>
+        <td className="px-4 py-2.5">
+          <button
+            onClick={onView}
+            className="p-1 rounded-lg hover:bg-indigo-100 text-gray-400 hover:text-indigo-600 transition-colors"
+            title="View full log"
+          >
+            <EyeIcon />
+          </button>
+        </td>
       </tr>
       {expanded && log.traceback && (
         <tr>
-          <td colSpan={5} className="px-4 pb-3">
+          <td colSpan={6} className="px-4 pb-3">
             <pre className="bg-gray-900 text-gray-200 text-xs p-4 rounded-lg overflow-x-auto max-h-64 font-mono">
               {log.traceback}
             </pre>
