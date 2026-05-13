@@ -236,6 +236,10 @@ async def get_prompts() -> dict:
         "groot-intent-classifier": {"type": "plain", "used_by": "Intent Classifier (legacy)", "description": "Fallback intent classifier — only runs if unified classifier is bypassed", "active": False},
         "groot-escalation-detector": {"type": "plain", "used_by": "Escalation Detector", "description": "Rates customer frustration 0.0-1.0 for auto-escalation", "active": True},
         "groot-summarizer": {"type": "plain", "used_by": "Ticket Summarizer", "description": "Summarizes conversation for Zendesk ticket creation", "active": True},
+        "groot-card-router": {"type": "mustache", "used_by": "Card Router (removed)", "description": "Legacy — replaced by unified classifier. Not loaded at runtime.", "active": False},
+        "groot-pre-classifier": {"type": "mustache", "used_by": "Pre-classifier (removed)", "description": "Legacy — replaced by unified classifier. Not loaded at runtime.", "active": False},
+        "groot-greeting": {"type": "mustache", "used_by": "Greeting Generator (removed)", "description": "Legacy — greeting is now inline in agents.py. Not loaded at runtime.", "active": False},
+        "groot-correctness-evaluator": {"type": "mustache", "used_by": "LangSmith Evaluator", "description": "Online evaluator for response correctness scoring", "active": True},
     }
 
     endpoint = os.getenv("LANGCHAIN_ENDPOINT", "https://eu.api.smith.langchain.com")
@@ -247,8 +251,10 @@ async def get_prompts() -> dict:
         try:
             from langsmith import Client
             client = Client()
-            for prompt in client.list_prompts():
-                name = prompt.repo_handle if hasattr(prompt, 'repo_handle') else (prompt.name if hasattr(prompt, 'name') else str(prompt))
+            result = client.list_prompts()
+            prompt_list = getattr(result, 'repos', None) or []
+            for prompt in prompt_list:
+                name = getattr(prompt, 'repo_handle', None) or getattr(prompt, 'name', None)
                 if name and name.startswith("groot-"):
                     langsmith_names.append(name)
         except Exception as e:
