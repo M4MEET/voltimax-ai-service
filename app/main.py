@@ -127,9 +127,17 @@ def create_app() -> FastAPI:
 
     # Serve React dashboard build
     import os
+    from fastapi.responses import FileResponse
     dashboard_dir = os.path.join(os.path.dirname(__file__), "..", "dashboard-build")
     if os.path.isdir(dashboard_dir):
-        app.mount("/dashboard", StaticFiles(directory=dashboard_dir, html=True), name="dashboard")
+        # Serve static assets (JS, CSS, images) directly
+        app.mount("/dashboard/assets", StaticFiles(directory=os.path.join(dashboard_dir, "assets")), name="dashboard-assets")
+
+        # Catch-all: serve index.html for all /dashboard/* routes (React client-side routing)
+        @app.get("/dashboard/{rest_of_path:path}")
+        @app.get("/dashboard")
+        async def serve_dashboard(rest_of_path: str = ""):
+            return FileResponse(os.path.join(dashboard_dir, "index.html"))
 
     # Serve static forms (Batteriepfand PDFs, etc.)
     static_forms_dir = os.path.join(os.path.dirname(__file__), "..", "static", "forms")
