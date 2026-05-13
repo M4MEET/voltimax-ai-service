@@ -58,7 +58,7 @@ export default function Prompts() {
     }
   }
 
-  const cachedCount = data?.prompts.filter((p) => p.cached).length ?? 0;
+  const cachedCount = data?.prompts?.filter((p) => p.cached).length ?? 0;
 
   const columns: Column<Prompt>[] = [
     {
@@ -123,7 +123,7 @@ export default function Prompts() {
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <KpiCard label="Total Prompts" value={data?.prompts.length ?? 0} color="blue" index={0} />
+        <KpiCard label="Total Prompts" value={data?.prompts?.length ?? 0} color="blue" index={0} />
         <KpiCard
           label="LangSmith Status"
           value={data?.enabled ? 'Enabled' : 'Disabled'}
@@ -132,7 +132,7 @@ export default function Prompts() {
         />
         <KpiCard
           label="Cache Status"
-          value={`${cachedCount} / ${data?.prompts.length ?? 0}`}
+          value={`${cachedCount} / ${data?.prompts?.length ?? 0}`}
           sub="prompts cached"
           color="purple"
           index={2}

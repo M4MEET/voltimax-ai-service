@@ -183,7 +183,7 @@ export default function Overview() {
   }
 
   const kpis = [
-    { label: 'Total Chats', value: overview.total_chats.toLocaleString(), color: 'blue', sub: `Last ${days}d`, trend: 'up' as const, to: '/analytics/chats' },
+    { label: 'Total Chats', value: (overview?.total_chats ?? 0).toLocaleString(), color: 'blue', sub: `Last ${days}d`, trend: 'up' as const, to: '/analytics/chats' },
     { label: 'Active Now', value: activeNow, color: 'green', sub: 'Live', trend: 'neutral' as const, greenLeftBorder: activeNow > 0, pulsingDot: true },
     { label: 'Escalation Rate', value: `${overview.escalation_rate.toFixed(1)}%`, color: 'yellow', sub: 'Handoffs to human', trend: 'down' as const, to: '/analytics/escalations' },
     { label: 'AI Resolution', value: `${overview.ai_resolution_rate.toFixed(1)}%`, color: 'green', sub: 'Resolved by AI', trend: 'up' as const, to: '/analytics/resolution' },
@@ -255,7 +255,7 @@ export default function Overview() {
           <h2 className="text-sm font-semibold text-gray-900 mb-1">Star Ratings</h2>
           {ratings && (
             <p className="text-xs text-gray-400 mb-4">
-              Average: {ratings.avg_rating.toFixed(1)} / 5 ({ratings.total} total)
+              Average: {ratings?.avg_rating?.toFixed(1) ?? '0.0'} / 5 ({ratings?.total ?? 0} total)
             </p>
           )}
           <Bar

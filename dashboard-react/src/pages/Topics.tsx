@@ -45,7 +45,7 @@ export default function Topics() {
     { key: 'topic', header: 'Topic', render: (r) => <span className="font-medium">{r._id || 'Unknown'}</span> },
     { key: 'count', header: 'Sessions', render: (r) => r.count },
     { key: 'escalated', header: 'Escalated', render: (r) => r.escalated },
-    { key: 'avg_msg', header: 'Avg Messages', render: (r) => r.avg_messages.toFixed(1) },
+    { key: 'avg_msg', header: 'Avg Messages', render: (r) => r.avg_messages?.toFixed(1) ?? '0' },
     {
       key: 'esc_rate',
       header: 'Esc. Rate',

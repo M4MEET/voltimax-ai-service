@@ -58,10 +58,10 @@ export default function Feedback() {
       <h1 className="text-xl font-bold text-gray-900">Feedback &amp; Ratings</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Satisfaction Rate" value={`${(feedback.satisfaction_rate * 100).toFixed(1)}%`} color="green" index={0} sub={`${feedback.total} votes`} />
-        <KpiCard label="Thumbs Up" value={feedback.up} color="green" index={1} />
-        <KpiCard label="Thumbs Down" value={feedback.down} color="red" index={2} />
-        <KpiCard label="Avg Rating" value={`${ratings.avg_rating.toFixed(1)} / 5`} color="purple" index={3} sub={`${ratings.total} ratings`} />
+        <KpiCard label="Satisfaction Rate" value={`${((feedback?.satisfaction_rate ?? 0) * 100).toFixed(1)}%`} color="green" index={0} sub={`${feedback?.total ?? 0} votes`} />
+        <KpiCard label="Thumbs Up" value={feedback?.up ?? 0} color="green" index={1} />
+        <KpiCard label="Thumbs Down" value={feedback?.down ?? 0} color="red" index={2} />
+        <KpiCard label="Avg Rating" value={`${ratings?.avg_rating?.toFixed(1) ?? '0.0'} / 5`} color="purple" index={3} sub={`${ratings?.total ?? 0} ratings`} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

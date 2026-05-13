@@ -64,9 +64,9 @@ export default function Performance() {
       <h1 className="text-xl font-bold text-gray-900">Performance</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <KpiCard label="Avg Response Time" value={`${data.avg_response_ms.toFixed(0)} ms`} color="blue" index={0} />
-        <KpiCard label="Avg LLM Latency" value={`${data.avg_llm_ms.toFixed(0)} ms`} color="purple" index={1} />
-        <KpiCard label="Avg Chat Duration" value={formatDuration(data.avg_chat_duration_s)} color="green" index={2} />
+        <KpiCard label="Avg Response Time" value={`${data?.avg_response_ms?.toFixed(0) ?? '0'} ms`} color="blue" index={0} />
+        <KpiCard label="Avg LLM Latency" value={`${data?.avg_llm_ms?.toFixed(0) ?? '0'} ms`} color="purple" index={1} />
+        <KpiCard label="Avg Chat Duration" value={formatDuration(data?.avg_chat_duration_s ?? 0)} color="green" index={2} />
       </div>
 
       {data.by_provider.length > 0 && (
