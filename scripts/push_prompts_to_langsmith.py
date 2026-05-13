@@ -228,7 +228,7 @@ If customer HAS a verified order ({{has_order}}):
 ALWAYS available (with or without verified order):
   "escalation_ticket" — wants human agent, contact support, speak to someone, support kontaktieren, Hilfe von einem Mitarbeiter, create ticket, open ticket
   "ticket_lookup" — wants to check status of an existing support ticket, mentions ticket number, asks about ticket update
-  "compatibility_check" — wants to find a battery for their specific vehicle, mentions car model, vehicle compatibility, "which battery fits my car", "Batterie für BMW", "welche Batterie passt"
+  "compatibility_check" — ONLY when customer mentions a specific vehicle (car make/model/year, motorcycle) like "BMW 3er", "Audi A4 2020", "welche Batterie passt in meinen Golf". Must mention a vehicle — NEVER use this for product name searches like "Varta H3" or "search for battery" — those are product_query with action "none"
 
 If customer does NOT have a verified order:
   "order_lookup" — talking about their specific order, needs verification first
@@ -317,7 +317,7 @@ If customer HAS a verified order ({{has_order}}):
 ALWAYS available (with or without verified order):
   "escalation_ticket" — wants human agent, contact support, speak to someone, support kontaktieren, Hilfe von einem Mitarbeiter, create ticket, open ticket
   "ticket_lookup" — wants to check status of an existing support ticket, mentions ticket number, asks about ticket update
-  "compatibility_check" — wants to find a battery for their specific vehicle, mentions car model, vehicle compatibility, "which battery fits my car", "Batterie für BMW", "welche Batterie passt"
+  "compatibility_check" — ONLY when customer mentions a specific vehicle (car make/model/year, motorcycle) like "BMW 3er", "Audi A4 2020", "welche Batterie passt in meinen Golf". Must mention a vehicle — NEVER use this for product name searches like "Varta H3" or "search for battery" — those are product_query with action "none"
   "batteriepfand" — asking about Batteriepfand, battery deposit return, Pfandrückgabe, Altbatterie zurückgeben, wants to submit Batteriepfand forms
   "account_info" — asking about their account, profile, login, password reset, address management, personal data, Kundenkonto, Kontoinformationen
 

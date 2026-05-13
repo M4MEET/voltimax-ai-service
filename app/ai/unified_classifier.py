@@ -44,7 +44,7 @@ If customer HAS a verified order ({{has_order}}):
 ALWAYS available (with or without verified order):
   "escalation_ticket" — wants human agent, contact support, support kontaktieren, create ticket
   "ticket_lookup" — wants to check status of an existing support ticket
-  "compatibility_check" — wants to find a battery for their vehicle, car/motorcycle compatibility
+  "compatibility_check" — ONLY when customer mentions a specific vehicle (car make/model/year, motorcycle). Must mention a vehicle — "BMW", "Audi A4", "Golf 7", etc. NEVER use this for product name searches like "Varta H3" or "search for battery" — those are product_query with action "none"
   "batteriepfand" — asking about Batteriepfand, battery deposit return, Pfandrückgabe, Altbatterie zurückgeben, wants to submit Batteriepfand forms
   "account_info" — asking about their account, profile, login, password reset, address management, personal data, Kundenkonto
 
