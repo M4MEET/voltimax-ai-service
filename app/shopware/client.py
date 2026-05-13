@@ -169,7 +169,7 @@ class ShopwareClient:
 
                 doc_id = d.get("id", "")
                 # Proxy through Server B so customer doesn't need Shopware login
-                server_b = f"http://localhost:{cfg.server.port}"
+                server_b = cfg.server.public_url
                 download_url = f"{server_b}/chat/document/{doc_id}/{deep_link}" if deep_link and doc_id else ""
 
                 if doc_number:  # Skip documents without a number
