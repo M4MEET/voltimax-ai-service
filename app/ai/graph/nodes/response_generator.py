@@ -268,7 +268,15 @@ def _get_intent_guidance(intent: str, topic_id: str) -> str:
         "customer_query": (
             "The customer is asking about their account. "
             "Use the customer data above to provide accurate, personalized information. "
-            "Be careful with sensitive data — only confirm what the customer is asking about."
+            "Be careful with sensitive data — only confirm what the customer is asking about. "
+            "PAYMENT METHOD CHANGE: If the customer wants to change the payment method, FIRST clarify: "
+            "is it for their account in general, or for an existing order? "
+            "- For ACCOUNT: direct them to the account settings page to update payment methods. "
+            "- For an EXISTING ORDER: the payment method CANNOT be changed on an existing order. "
+            "  Explain: 'Die Zahlungsart einer bestehenden Bestellung kann leider nicht nachträglich geändert werden. "
+            "  Wir können die Bestellung stornieren und du kannst eine neue Bestellung mit der gewünschten Zahlungsart aufgeben. "
+            "  Möchtest du, dass ich ein Support-Ticket dafür erstelle?' "
+            "  Then offer to create a support ticket for order cancellation + reorder."
         ),
         "b2b_query": (
             "This is a B2B customer. "
