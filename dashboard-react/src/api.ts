@@ -22,7 +22,12 @@ export async function apiFetch<T = unknown>(path: string, init?: RequestInit): P
   });
   if (res.status === 401) {
     clearApiKey();
-    window.location.reload();
+    // Redirect to root instead of reloading to avoid infinite reload loops
+    // when the API keeps returning 401
+    if (!sessionStorage.getItem('vtx_auth_redirect')) {
+      sessionStorage.setItem('vtx_auth_redirect', '1');
+      window.location.replace('/dashboard');
+    }
     throw new Error('Unauthorized');
   }
   if (!res.ok) throw new Error(`API error: ${res.status}`);
