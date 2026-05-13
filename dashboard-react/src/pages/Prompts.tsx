@@ -109,7 +109,7 @@ export default function Prompts() {
             {refreshing ? 'Refreshing...' : 'Refresh Cache'}
           </button>
           <a
-            href={data?.endpoint || '#'}
+            href="https://smith.langchain.com/hub"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-medium hover:bg-emerald-600 transition-all"
@@ -181,7 +181,7 @@ export default function Prompts() {
                   </button>
                 )}
                 <a
-                  href={`${data?.endpoint || '#'}`}
+                  href={`https://smith.langchain.com/hub/${prompt.name}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all"
