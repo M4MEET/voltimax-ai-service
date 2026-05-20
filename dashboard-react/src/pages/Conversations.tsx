@@ -302,10 +302,10 @@ export default function Conversations() {
                                 {evt.type.replace(/_/g, ' ')}
                               </Badge>
                               <span className="text-[10px] text-gray-400">
-                                {new Date(evt.ts).toLocaleTimeString()}
+                                {evt.ts}
                               </span>
                             </div>
-                            <p className="text-xs text-gray-600 mt-0.5">{evt.detail}</p>
+                            <p className="text-xs text-gray-600 mt-0.5 break-words" style={{ overflowWrap: 'anywhere' }}>{evt.detail}</p>
                           </div>
                         </div>
                       ))}
@@ -321,13 +321,13 @@ export default function Conversations() {
                 <div key={i} className={clsx('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
                   <div
                     className={clsx(
-                      'max-w-[80%] rounded-2xl px-4 py-2.5 text-sm',
+                      'max-w-[80%] rounded-2xl px-4 py-2.5 text-sm overflow-hidden',
                       msg.role === 'user'
                         ? 'bg-indigo-500 text-white rounded-br-md'
                         : 'bg-gray-100 text-gray-800 rounded-bl-md'
                     )}
                   >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <p className="whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>{msg.content}</p>
                     <p className={clsx('text-[10px] mt-1', msg.role === 'user' ? 'text-indigo-200' : 'text-gray-400')}>
                       {new Date(msg.created_at).toLocaleTimeString()}
                     </p>
