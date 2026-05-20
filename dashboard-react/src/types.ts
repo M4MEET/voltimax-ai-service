@@ -52,6 +52,7 @@ export interface SessionEvent {
 
 export interface SessionSummary {
   id: string;
+  chat_id?: string;
   customer_name: string;
   customer_email: string;
   topic_id: string;

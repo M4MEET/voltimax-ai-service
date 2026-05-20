@@ -150,6 +150,7 @@ class AnalyticsAggregator:
                 {"customer_name": {"$regex": search, "$options": "i"}},
                 {"customer_email": {"$regex": search, "$options": "i"}},
                 {"topic_id": {"$regex": search, "$options": "i"}},
+                {"chat_id": {"$regex": search, "$options": "i"}},
             ]
 
         total = await sessions_collection().count_documents(query)

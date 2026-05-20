@@ -97,6 +97,13 @@ export default function Conversations() {
         </div>
       ),
     },
+    {
+      key: 'chat_id',
+      header: 'Session',
+      render: (r) => r.chat_id ? (
+        <span className="font-mono text-xs text-indigo-600">{r.chat_id}</span>
+      ) : <span className="text-gray-300">—</span>,
+    },
     { key: 'topic', header: 'Topic', render: (r) => r.topic_id || '-' },
     {
       key: 'tags',
@@ -224,7 +231,7 @@ export default function Conversations() {
       <Modal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setModalData(null); }}
-        title={modalData ? `Chat with ${modalData.session.customer_name || 'Anonymous'}` : 'Loading...'}
+        title={modalData ? `${modalData.session.customer_name || 'Anonymous'} ${modalData.session.chat_id ? `— ${modalData.session.chat_id}` : ''}` : 'Loading...'}
       >
         {modalLoading ? (
           <div className="space-y-4 py-4">
