@@ -1191,27 +1191,21 @@ class ConnectionHandler:
                             # Postcode verification: check billing address on the order
                             if order_data and not order_data.get("order_not_owned") and postcode:
                                 try:
-                                    # Check postcode against order's billing address
                                     order_obj = order_data.get("order", order_data)
                                     billing_addr = order_obj.get("billingAddress") or {}
                                     order_postcode = (billing_addr.get("zipcode") or billing_addr.get("postcode") or "").strip()
 
-                                    # Fallback: check customer's saved addresses
                                     if not order_postcode:
-                                        customer_email_for_addr = order_obj.get("customerEmail") or order_obj.get("email") or ""
-                                        if customer_email_for_addr:
-                                            addresses = await client.get_customer_addresses(customer_email_for_addr)
-                                            if addresses and isinstance(addresses, list):
-                                                for addr in addresses:
-                                                    zc = (addr.get("zipcode") or addr.get("postcode") or "").strip()
-                                                    if zc:
-                                                        order_postcode = zc
-                                                        break
-
-                                    if order_postcode and postcode != order_postcode:
+                                        # No postcode on order — reject (can't verify)
+                                        logger.warning(f"Order #{order_number}: no billing postcode found, rejecting verification")
                                         order_data = {"order_not_owned": True}
-                                except Exception:
-                                    pass  # If postcode check fails, allow through
+                                    elif postcode != order_postcode:
+                                        logger.info(f"Order #{order_number}: postcode mismatch (given={postcode}, order={order_postcode})")
+                                        order_data = {"order_not_owned": True}
+                                except Exception as e:
+                                    # If postcode check fails, reject for safety
+                                    logger.error(f"Order #{order_number}: postcode check error: {e}")
+                                    order_data = {"order_not_owned": True}
 
                             if order_data and not order_data.get("order_not_owned"):
                                 # Order verified — store and cache
