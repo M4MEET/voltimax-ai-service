@@ -179,6 +179,21 @@ async def classify_message(
     if action in order_cards and not has_verified_order:
         action = "order_lookup"
 
+    # Return/refund POLICY questions don't need order verification — use RAG
+    if action == "order_lookup" and intent == "return_query":
+        _policy_words = ["kosten", "cost", "policy", "recht", "frist", "wie", "how",
+                         "rückgabe", "widerruf", "bedingung", "regel", "return policy"]
+        _is_policy = any(w in message.lower() for w in _policy_words)
+        if _is_policy or not has_verified_order:
+            # Check if they're asking about policy vs returning a specific item
+            _specific_return = any(w in message.lower() for w in [
+                "meine bestellung", "my order", "zurückschicken", "send back",
+                "retournieren", "return my", "umtauschen", "exchange my",
+            ])
+            if not _specific_return:
+                action = "none"
+                intent = "rag_query"
+
     # Safety: customer_query about account should use account_info, not escalation
     if intent == "customer_query" and action in ("escalation_ticket", "none"):
         action = "account_info"
