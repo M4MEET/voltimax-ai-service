@@ -231,7 +231,7 @@ ALWAYS available (with or without verified order):
   "compatibility_check" — ONLY when customer mentions a specific vehicle (car make/model/year, motorcycle) like "BMW 3er", "Audi A4 2020", "welche Batterie passt in meinen Golf". Must mention a vehicle — NEVER use this for product name searches like "Varta H3" or "search for battery" — those are product_query with action "none"
 
 If customer does NOT have a verified order:
-  "order_lookup" — talking about their specific order, needs verification first
+  "order_lookup" — talking about THEIR specific order, needs verification. NOT for general policy questions (return policy, shipping costs) — those are "none" with rag_query
   "no_order" — explicitly says they don't have an order, want pre-sales help
   "none" — not about a specific order, general question (products, shipping times, policies, greetings, etc.)
 
@@ -322,14 +322,14 @@ ALWAYS available (with or without verified order):
   "account_info" — asking about their account, profile, login, password reset, address management, personal data, Kundenkonto, Kontoinformationen
 
 If customer does NOT have a verified order:
-  "order_lookup" — talking about their specific order, needs verification first. Also use this when customer asks about payment status, invoice, tracking, refund, or ANY order-specific information WITHOUT a verified order — they need to verify their order first.
+  "order_lookup" — talking about THEIR specific order, needs verification. NOT for general policy questions (return policy, shipping costs) — those are "none" with rag_query. Also use this when customer asks about payment status, invoice, tracking, refund, or ANY order-specific information WITHOUT a verified order — they need to verify their order first.
   "no_order" — explicitly says they don't have an order, want pre-sales help
   "clarify" — message is too vague or ambiguous to determine intent (e.g. single words like "status", "hilfe", "problem" without context)
   "none" — not about a specific order, general question (products, shipping times, policies, greetings, etc.)
 
 INTENT CATEGORIES:
   "order_query" — about order status, tracking, delivery
-  "return_query" — about returns, refunds, exchanges
+  "return_query" — customer wants to RETURN or EXCHANGE a specific item they ordered. NOT for general return policy questions (those are rag_query)
   "product_query" — about products, stock, availability, pricing, recommendations
   "product_doc_query" — requesting document, PDF, datasheet, manual for a SPECIFIC product
   "customer_query" — about account, addresses, payment methods

@@ -49,14 +49,15 @@ ALWAYS available (with or without verified order):
   "account_info" — asking about their account, profile, login, password reset, address management, personal data, Kundenkonto
 
 If customer does NOT have a verified order:
-  "order_lookup" — talking about their specific order, needs verification. Also use this when customer asks about payment status, invoice, tracking, refund, or ANY order-specific information WITHOUT a verified order — they need to verify their order first.
+  "order_lookup" — talking about THEIR specific order, needs verification. Use when customer wants to check THEIR order status, track THEIR package, return THEIR specific item, get THEIR invoice. NOT for general policy questions (return policy, shipping costs, warranty info) — those are "none" with rag_query intent.
   "no_order" — explicitly says they don't have an order
   "clarify" — message is too vague or ambiguous to determine intent. Use this when you genuinely cannot tell what the customer wants. AI will ask a follow-up question to understand better.
   "none" — general question, let AI respond naturally
 
 INTENT CATEGORIES:
   "order_query" — about order status, tracking, delivery
-  "return_query" — about returns, refunds, exchanges
+  "return_query" — customer wants to RETURN or EXCHANGE a specific item they ordered. Use ONLY when they clearly want to initiate a return on their order.
+  NOTE: General questions about return POLICY, costs, deadlines, conditions (e.g. "how does return work?", "Rückgaberecht", "return policy") are "rag_query" NOT "return_query" — these are answerable from knowledge base without needing an order.
   "product_query" — about products, stock, availability, pricing
   "product_doc_query" — requesting document, PDF, datasheet, manual for a product
   "customer_query" — about account, addresses, payment methods
@@ -80,7 +81,7 @@ RULES:
   - Use "account_info" when customer asks about their account, profile, login, password, address changes, personal data, Kundenkonto, Kontoinformationen — this is NEVER an escalation, always account_info
   - Use "batteriepfand" whenever the customer mentions Batteriepfand, Pfandrückgabe, battery deposit, or Altbatterie return — this is NEVER a product search, always the batteriepfand action
   - Use "clarify" ONLY when the message is genuinely ambiguous with no topic hint (e.g. just "hi", "help" with zero context). Do NOT clarify when the message contains a clear topic word like "Bestellstatus", "Produktsuche", "Retoure", "Rechnung", "Batteriepfand", "Ticket", "Konto" — these always have a clear action even if short
-  - Messages with emoji prefixes (📦, 🔋, ↩️, etc.) are suggestion chip clicks — treat the text after the emoji as the intent, never clarify these
+  - Messages with emoji prefixes (📦, 🔋, ↩️, etc.) are suggestion chip clicks — treat the text after the emoji as the intent, NEVER clarify these. Examples: "↩️ Retoure & Erstattung" → rag_query about return policy (action=none), "📦 Bestellstatus" → order_lookup
   - When unsure between two specific actions, prefer the more specific action over clarify
 
 COMPLEXITY (pick one):
@@ -179,20 +180,9 @@ async def classify_message(
     if action in order_cards and not has_verified_order:
         action = "order_lookup"
 
-    # Return/refund POLICY questions don't need order verification — use RAG
-    if action == "order_lookup" and intent == "return_query":
-        _policy_words = ["kosten", "cost", "policy", "recht", "frist", "wie", "how",
-                         "rückgabe", "widerruf", "bedingung", "regel", "return policy"]
-        _is_policy = any(w in message.lower() for w in _policy_words)
-        if _is_policy or not has_verified_order:
-            # Check if they're asking about policy vs returning a specific item
-            _specific_return = any(w in message.lower() for w in [
-                "meine bestellung", "my order", "zurückschicken", "send back",
-                "retournieren", "return my", "umtauschen", "exchange my",
-            ])
-            if not _specific_return:
-                action = "none"
-                intent = "rag_query"
+    # The classifier should distinguish return POLICY questions (→ rag_query, action=none)
+    # from specific return REQUESTS (→ return_query, action=order_lookup).
+    # No hardcoded keyword overrides — trust the classifier.
 
     # Safety: customer_query about account should use account_info, not escalation
     if intent == "customer_query" and action in ("escalation_ticket", "none"):
