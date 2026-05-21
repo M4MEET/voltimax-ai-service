@@ -145,9 +145,11 @@ class AIEngine:
             events_summary.append(f"{ev.get('ts','')} {ev.get('type','')}: {ev.get('detail','')}")
 
         active_topic = final_state.resolved_topic or session.get("topic_id", "general")
+        chat_id = session.get("chat_id") or session.get("id", "")
         config = {
             "metadata": {
                 "session_id": session.get("id", ""),
+                "chat_id": chat_id,
                 "topic_id": active_topic,
                 "topic_tags": session.get("topic_tags", []),
                 "customer_email": user_claims.get("email", ""),
@@ -156,7 +158,8 @@ class AIEngine:
                 "order_number": session.get("order_number", ""),
                 "session_events": events_summary,
             },
-            "tags": ["groot-chat", f"topic:{active_topic}"],
+            "tags": ["groot-chat", f"session:{chat_id}", f"topic:{active_topic}"],
+            "configurable": {"thread_id": chat_id},
         }
 
         run_id = None

@@ -294,6 +294,7 @@ class ConnectionHandler:
                     # Get recent history for follow-up awareness
                     _recent_history = await self.chat_manager.get_session_messages(session_id)
 
+                    _chat_id = (session_data or {}).get("chat_id") or session_id or ""
                     classification = await classify_message(
                         message=msg.content,
                         has_verified_order=bool(verified_order),
@@ -302,6 +303,11 @@ class ConnectionHandler:
                         has_cached_data=bool(cached_order),
                         history=_recent_history,
                         llm_provider=session_provider,
+                        chat_id=_chat_id,
+                        langsmith_extra={
+                            "metadata": {"chat_id": _chat_id, "topic_id": topic_id},
+                            "tags": [f"session:{_chat_id}", f"topic:{topic_id}"],
+                        },
                     )
                     card_action = classification["action"]
                     logger.info(f"Unified classifier: msg={msg.content[:50]!r} → action={card_action} intent={classification['intent']} complexity={classification.get('complexity','?')}")

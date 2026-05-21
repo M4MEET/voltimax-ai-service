@@ -108,6 +108,7 @@ async def classify_message(
     has_cached_data: bool = False,
     history: list[dict] | None = None,
     llm_provider: str | None = None,
+    chat_id: str = "",
 ) -> dict:
     """Classify a message in one LLM call.
 
