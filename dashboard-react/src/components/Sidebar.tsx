@@ -16,6 +16,7 @@ import {
   Zap,
   ScrollText,
   Ticket,
+  ShoppingBag,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { clearApiKey } from '../api';
@@ -32,6 +33,7 @@ const analyticsNav = [
   { to: '/feedback', icon: ThumbsUp, label: 'Feedback' },
   { to: '/costs', icon: DollarSign, label: 'Costs' },
   { to: '/escalations', icon: AlertTriangle, label: 'Escalations' },
+  { to: '/products', icon: ShoppingBag, label: 'Products' },
   { to: '/performance', icon: Activity, label: 'Performance' },
   { to: '/logs', icon: FileText, label: 'Logs' },
 ];

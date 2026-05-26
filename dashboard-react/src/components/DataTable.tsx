@@ -4,7 +4,7 @@ import clsx from 'clsx';
 export interface Column<T> {
   key: string;
   header: string;
-  render: (row: T) => ReactNode;
+  render: (row: T, index?: number) => ReactNode;
   className?: string;
 }
 
@@ -59,7 +59,7 @@ export default function DataTable<T>({
               >
                 {columns.map((col) => (
                   <td key={col.key} className={clsx('px-4 py-3 text-gray-700', col.className)}>
-                    {col.render(row)}
+                    {col.render(row, i)}
                   </td>
                 ))}
               </tr>

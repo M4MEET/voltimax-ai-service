@@ -107,11 +107,23 @@ def build_product_card(
         if specs_line:
             detail += f"\n{specs_line}"
 
+        # Extract numeric price for GA4 ecommerce
+        calculated = p.get("calculatedPrice")
+        if calculated and isinstance(calculated, dict):
+            _numeric_price = calculated.get("totalPrice", 0)
+        elif p.get("price") is not None:
+            _numeric_price = p["price"]
+        else:
+            _numeric_price = 0
+
         url = _tracking_url(product_id, session_id) if product_id else ""
         links.append({
             "label": name,
             "url": url,
             "detail": detail,
+            "product_id": product_id,
+            "product_price": round(_numeric_price, 2),
+            "product_number": p.get("productNumber", ""),
         })
 
         # Per-product cheaper alternative (from cheaper_alternatives dict)
@@ -133,6 +145,8 @@ def build_product_card(
                 "url": _alt_url,
                 "detail": _alt_detail,
                 "style": "alternative",
+                "product_id": _alt_id,
+                "product_price": round(_alt_price, 2),
             })
 
     shown = len([l for l in links if l.get("style") != "alternative"])

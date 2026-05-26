@@ -78,6 +78,12 @@ async def performance(days: int = Query(7, ge=1, le=365)) -> dict:
     return await aggregator.get_performance(days)
 
 
+@router.get("/product-recommendations")
+async def product_recommendations(days: int = Query(30, ge=1, le=365)) -> dict:
+    """Product recommendation analytics — impressions, top products, funnel."""
+    return await aggregator.get_product_recommendations(days)
+
+
 @router.get("/timeseries")
 async def timeseries(
     metric: str = Query(..., description="chats|escalations|tickets|tokens|resolution|response_time"),

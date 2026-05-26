@@ -20,6 +20,7 @@ const Knowledge = React.lazy(() => import('./pages/Knowledge'));
 const Prompts = React.lazy(() => import('./pages/Prompts'));
 const Tickets = React.lazy(() => import('./pages/Tickets'));
 const MetricDetail = React.lazy(() => import('./pages/MetricDetail'));
+const ProductRecommendations = React.lazy(() => import('./pages/ProductRecommendations'));
 
 function LoadingSkeleton() {
   return (
@@ -104,6 +105,7 @@ export default function App() {
                 <Route path="knowledge" element={<Knowledge />} />
                 <Route path="prompts" element={<Prompts />} />
                 <Route path="tickets" element={<Tickets />} />
+                <Route path="products" element={<ProductRecommendations />} />
                 <Route path="analytics/:metric" element={<MetricDetail />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>

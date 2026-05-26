@@ -234,6 +234,68 @@ class AnalyticsAggregator:
 
         return {"session": session, "messages": msgs}
 
+    async def get_product_recommendations(self, days: int = 30) -> dict:
+        """Product recommendation funnel: shown → clicked (via events on sessions)."""
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+
+        # Sessions with product_card_shown events
+        shown_pipeline = [
+            {"$match": {"created_at": {"$gte": since}, "events.type": "product_card_shown"}},
+            {"$project": {
+                "chat_id": 1,
+                "customer_name": 1,
+                "customer_email": 1,
+                "topic_id": 1,
+                "events": {"$filter": {
+                    "input": "$events",
+                    "as": "evt",
+                    "cond": {"$in": ["$$evt.type", [
+                        "product_card_shown", "cheaper_alternative_shown",
+                    ]]},
+                }},
+            }},
+        ]
+        sessions_with_products = await sessions_collection().aggregate(shown_pipeline).to_list(500)
+
+        total_shown = 0
+        total_alternatives = 0
+        product_mentions: dict[str, int] = {}
+        for s in sessions_with_products:
+            for ev in s.get("events", []):
+                if ev.get("type") == "product_card_shown":
+                    total_shown += 1
+                    # Extract product names from detail string
+                    detail = ev.get("detail", "")
+                    if ":" in detail:
+                        products_part = detail.split(":", 1)[1].strip() if ":" in detail else ""
+                        for name in products_part.split(","):
+                            name = name.strip().rstrip(".")
+                            if name:
+                                product_mentions[name] = product_mentions.get(name, 0) + 1
+                elif ev.get("type") == "cheaper_alternative_shown":
+                    total_alternatives += 1
+
+        # Top recommended products
+        top_products = sorted(product_mentions.items(), key=lambda x: -x[1])[:15]
+
+        # Sessions with tickets after product recommendation
+        ticket_after_product = await sessions_collection().count_documents({
+            "created_at": {"$gte": since},
+            "events.type": "product_card_shown",
+            "events.type": "ticket_created",
+        })
+
+        return {
+            "total_sessions_with_recommendations": len(sessions_with_products),
+            "total_product_impressions": total_shown,
+            "total_alternatives_shown": total_alternatives,
+            "top_recommended_products": [
+                {"name": name, "count": count} for name, count in top_products
+            ],
+            "sessions_with_ticket_after_recommendation": ticket_after_product,
+            "period_days": days,
+        }
+
     def _fill_dates(self, data: list[dict], days: int, group: str) -> list[dict]:
         """Fill in missing dates with zero values so charts show continuous timelines."""
         if group == "monthly":
