@@ -281,8 +281,10 @@ class AnalyticsAggregator:
         # Sessions with tickets after product recommendation
         ticket_after_product = await sessions_collection().count_documents({
             "created_at": {"$gte": since},
-            "events.type": "product_card_shown",
-            "events.type": "ticket_created",
+            "$and": [
+                {"events.type": "product_card_shown"},
+                {"events.type": "ticket_created"},
+            ],
         })
 
         return {
