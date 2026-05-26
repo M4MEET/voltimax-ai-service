@@ -24,7 +24,8 @@ services:
       - "127.0.0.1:27017:27017"
     volumes:
       - mongodb_data:/data/db
-      - mongodb_config:/data/configdb
+    tmpfs:
+      - /data/configdb:uid=999,gid=999
     restart: unless-stopped
     networks:
       - voltimax
@@ -77,8 +78,6 @@ networks:
 
 volumes:
   mongodb_data:
-  mongodb_config:
 
-# Both /data/db and /data/configdb use Docker volumes (not bind mounts)
-# atlas-local requires Docker-managed volumes for keyfile permissions
+# /data/db uses a Docker volume for persistence, /data/configdb uses tmpfs (keyfile is regenerated each start)
 # To backup: docker run --rm -v voltimax-chat_mongodb_data:/data -v $(pwd)/backup:/backup alpine tar czf /backup/mongo-backup.tar.gz -C /data .
