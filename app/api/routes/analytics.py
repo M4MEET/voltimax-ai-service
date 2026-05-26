@@ -46,9 +46,12 @@ async def conversations(
     limit: int = Query(20, ge=1, le=100),
     topic: str | None = Query(None),
     search: str | None = Query(None),
+    tag: str | None = Query(None),
+    status: str | None = Query(None),
+    has_ticket: bool | None = Query(None),
 ) -> dict:
     """Paginated list of chat sessions."""
-    return await aggregator.get_conversations(skip, limit, topic, search)
+    return await aggregator.get_conversations(skip, limit, topic, search, tag, status, has_ticket)
 
 
 @router.get("/conversation/{session_id}")

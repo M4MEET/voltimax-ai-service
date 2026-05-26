@@ -15,11 +15,13 @@ interface BadgeProps {
   children: React.ReactNode;
   color?: string;
   className?: string;
+  onClick?: () => void;
 }
 
-export default function Badge({ children, color = 'gray', className }: BadgeProps) {
+export default function Badge({ children, color = 'gray', className, onClick }: BadgeProps) {
   return (
     <span
+      onClick={onClick}
       className={clsx(
         'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset',
         colorMap[color] || colorMap.gray,

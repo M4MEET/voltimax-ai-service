@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Search, Eye, ChevronLeft, ChevronRight, Package, ChevronDown, AlertTriangle } from 'lucide-react';
+import { Search, Eye, ChevronLeft, ChevronRight, Package, ChevronDown, AlertTriangle, X, Filter } from 'lucide-react';
 import { apiFetch } from '../api';
 import type { ConversationsResponse, SessionSummary, ConversationDetail, SessionEvent } from '../types';
 import DataTable from '../components/DataTable';
@@ -34,6 +34,18 @@ const eventTypeColor: Record<string, string> = {
   topic_auto_switched: 'amber',
 };
 
+/** Derive highlight badges from session events */
+function getEventBadges(events?: SessionEvent[]): { label: string; color: string }[] {
+  if (!events || events.length === 0) return [];
+  const types = new Set(events.map((e) => e.type));
+  const badges: { label: string; color: string }[] = [];
+  if (types.has('ticket_created')) badges.push({ label: '🎫 Ticket', color: 'purple' });
+  if (types.has('verification_success')) badges.push({ label: '✓ Verified', color: 'green' });
+  if (types.has('verification_failed')) badges.push({ label: '✗ Verify failed', color: 'red' });
+  if (types.has('topic_auto_switched')) badges.push({ label: '↻ Switched', color: 'amber' });
+  return badges;
+}
+
 export default function Conversations() {
   const [data, setData] = useState<ConversationsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,10 +53,15 @@ export default function Conversations() {
   const [search, setSearch] = useState('');
   const [topic, setTopic] = useState('');
   const [page, setPage] = useState(0);
+  const [filterTag, setFilterTag] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterTicket, setFilterTicket] = useState(false);
   const [modalData, setModalData] = useState<ConversationDetail | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [eventsOpen, setEventsOpen] = useState(false);
+
+  const hasFilters = !!(topic || filterTag || filterStatus || filterTicket);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -55,12 +72,15 @@ export default function Conversations() {
     });
     if (search) params.set('search', search);
     if (topic) params.set('topic', topic);
+    if (filterTag) params.set('tag', filterTag);
+    if (filterStatus) params.set('status', filterStatus);
+    if (filterTicket) params.set('has_ticket', 'true');
 
     apiFetch<ConversationsResponse>(`/api/analytics/conversations?${params}`)
       .then(setData)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [page, search, topic]);
+  }, [page, search, topic, filterTag, filterStatus, filterTicket]);
 
   useEffect(() => {
     fetchData();
@@ -108,28 +128,46 @@ export default function Conversations() {
     {
       key: 'tags',
       header: 'Tags',
-      render: (r) =>
-        r.topic_tags && r.topic_tags.length > 0 ? (
+      render: (r) => {
+        const eventBadges = getEventBadges(r.events);
+        const hasTags = (r.topic_tags && r.topic_tags.length > 0) || eventBadges.length > 0;
+        if (!hasTags) return <span className="text-gray-300">-</span>;
+        return (
           <div className="flex flex-wrap gap-1">
-            {r.topic_tags.slice(0, 3).map((t) => (
-              <Badge key={t} color={tagColor(t)} className="text-[10px] px-1.5 py-0">
+            {eventBadges.map((b) => (
+              <Badge key={b.label} color={b.color} className="text-[10px] px-1.5 py-0">
+                {b.label}
+              </Badge>
+            ))}
+            {(r.topic_tags || []).slice(0, 3).map((t) => (
+              <Badge
+                key={t}
+                color={tagColor(t)}
+                className="text-[10px] px-1.5 py-0 cursor-pointer hover:ring-1 hover:ring-inset hover:ring-current"
+                onClick={() => { setFilterTag(t); setPage(0); }}
+              >
                 {t}
               </Badge>
             ))}
-            {r.topic_tags.length > 3 && (
-              <span className="text-[10px] text-gray-400">+{r.topic_tags.length - 3}</span>
+            {(r.topic_tags || []).length > 3 && (
+              <span className="text-[10px] text-gray-400">+{r.topic_tags!.length - 3}</span>
             )}
           </div>
-        ) : (
-          <span className="text-gray-300">-</span>
-        ),
+        );
+      },
     },
     {
       key: 'status',
       header: 'Status',
       render: (r) => (
         <div className="flex flex-col gap-0.5">
-          <Badge color={statusColor[r.status] || 'gray'}>{r.status}</Badge>
+          <Badge
+            color={statusColor[r.status] || 'gray'}
+            className="cursor-pointer hover:ring-2"
+            onClick={() => { setFilterStatus(r.status); setPage(0); }}
+          >
+            {r.status}
+          </Badge>
           {r.close_reason && r.close_reason !== 'completed' && (
             <span className="text-[10px] text-gray-400">{r.close_reason}</span>
           )}
@@ -164,25 +202,79 @@ export default function Conversations() {
     <div className="space-y-6 animate-fade-in">
       <h1 className="text-xl font-bold text-gray-900">Conversations</h1>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <form onSubmit={handleSearch} className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* Search + Filters */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <form onSubmit={handleSearch} className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, email, session ID..."
+              className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
+            />
+          </form>
           <input
             type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search conversations..."
-            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
+            value={topic}
+            onChange={(e) => { setTopic(e.target.value); setPage(0); }}
+            placeholder="Filter by topic..."
+            className="sm:w-48 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
           />
-        </form>
-        <input
-          type="text"
-          value={topic}
-          onChange={(e) => { setTopic(e.target.value); setPage(0); }}
-          placeholder="Filter by topic..."
-          className="sm:w-48 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
-        />
+        </div>
+
+        {/* Quick filter chips */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Filter size={14} className="text-gray-400" />
+          {(['active', 'escalated', 'closed'] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => { setFilterStatus(filterStatus === s ? '' : s); setPage(0); }}
+              className={clsx(
+                'px-2.5 py-1 rounded-full text-[11px] font-medium ring-1 ring-inset transition-all',
+                filterStatus === s
+                  ? s === 'active' ? 'bg-emerald-100 text-emerald-800 ring-emerald-600/30'
+                    : s === 'escalated' ? 'bg-red-100 text-red-800 ring-red-600/30'
+                    : 'bg-gray-200 text-gray-800 ring-gray-400/30'
+                  : 'bg-white text-gray-500 ring-gray-200 hover:bg-gray-50'
+              )}
+            >
+              {s}
+            </button>
+          ))}
+          <span className="w-px h-4 bg-gray-200" />
+          <button
+            onClick={() => { setFilterTicket(!filterTicket); setPage(0); }}
+            className={clsx(
+              'px-2.5 py-1 rounded-full text-[11px] font-medium ring-1 ring-inset transition-all',
+              filterTicket
+                ? 'bg-purple-100 text-purple-800 ring-purple-600/30'
+                : 'bg-white text-gray-500 ring-gray-200 hover:bg-gray-50'
+            )}
+          >
+            🎫 Has ticket
+          </button>
+          {hasFilters && (
+            <>
+              <span className="w-px h-4 bg-gray-200" />
+              {filterTag && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
+                  tag: {filterTag}
+                  <button onClick={() => { setFilterTag(''); setPage(0); }} className="hover:text-indigo-900">
+                    <X size={10} />
+                  </button>
+                </span>
+              )}
+              <button
+                onClick={() => { setFilterStatus(''); setFilterTag(''); setFilterTicket(false); setTopic(''); setPage(0); }}
+                className="text-[11px] text-gray-400 hover:text-gray-600 underline"
+              >
+                Clear all
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {error && (

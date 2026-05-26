@@ -140,11 +140,18 @@ class AnalyticsAggregator:
         return {"providers": result, "period_days": days}
 
     async def get_conversations(
-        self, skip: int = 0, limit: int = 20, topic: str | None = None, search: str | None = None
+        self, skip: int = 0, limit: int = 20, topic: str | None = None, search: str | None = None,
+        tag: str | None = None, status: str | None = None, has_ticket: bool | None = None,
     ) -> dict:
         query: dict = {}
         if topic:
             query["topic_id"] = topic
+        if status:
+            query["status"] = status
+        if tag:
+            query["topic_tags"] = tag
+        if has_ticket is True:
+            query["events.type"] = "ticket_created"
         if search:
             query["$or"] = [
                 {"customer_name": {"$regex": search, "$options": "i"}},
