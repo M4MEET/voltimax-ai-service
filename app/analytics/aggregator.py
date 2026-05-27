@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.db.collections import (
     analytics_events_collection,
+    conversions_collection,
     messages_collection,
     sessions_collection,
 )
@@ -287,6 +288,13 @@ class AnalyticsAggregator:
             ],
         })
 
+        # Conversion data from the conversions collection
+        conversions = await conversions_collection().find(
+            {"created_at": {"$gte": since}}, {"_id": 0}
+        ).sort("created_at", -1).to_list(100)
+
+        total_revenue = sum(c.get("order_total", 0) for c in conversions)
+
         return {
             "total_sessions_with_recommendations": len(sessions_with_products),
             "total_product_impressions": total_shown,
@@ -295,6 +303,18 @@ class AnalyticsAggregator:
                 {"name": name, "count": count} for name, count in top_products
             ],
             "sessions_with_ticket_after_recommendation": ticket_after_product,
+            "total_conversions": len(conversions),
+            "total_revenue": round(total_revenue, 2),
+            "recent_conversions": [
+                {
+                    "order_number": c.get("order_number", ""),
+                    "order_total": c.get("order_total", 0),
+                    "currency": c.get("currency", "EUR"),
+                    "groot_session": c.get("groot_session", ""),
+                    "created_at": c.get("created_at", "").isoformat() if hasattr(c.get("created_at", ""), "isoformat") else str(c.get("created_at", "")),
+                }
+                for c in conversions[:20]
+            ],
             "period_days": days,
         }
 

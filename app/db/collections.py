@@ -35,3 +35,7 @@ def logs_collection():
 
 def consent_log_collection():
     return get_db()["consent_log"]
+
+
+def conversions_collection():
+    return get_db()["conversions"]

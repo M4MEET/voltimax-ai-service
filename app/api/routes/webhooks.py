@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
 
 from app.config import get_config
+from app.db.collections import conversions_collection
 
 logger = logging.getLogger(__name__)
 
@@ -56,3 +58,42 @@ async def n8n_webhook(request: Request) -> dict:
     else:
         logger.info(f"Unhandled webhook type: {event_type}")
         return {"status": "received", "type": event_type}
+
+
+@router.post("/conversion")
+async def track_conversion(request: Request) -> dict:
+    """Track a purchase attributed to a Groot chat recommendation.
+
+    Called from Shopware checkout finish page when groot_attribution cookie exists.
+    No auth required — the data is non-sensitive (order number + total) and
+    the attribution cookie validates the flow.
+    """
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON payload")
+
+    order_number = payload.get("order_number", "")
+    if not order_number:
+        raise HTTPException(400, "order_number is required")
+
+    doc = {
+        "order_number": order_number,
+        "order_total": payload.get("order_total", 0),
+        "currency": payload.get("currency", "EUR"),
+        "items_count": payload.get("items_count", 0),
+        "groot_ref": payload.get("groot_ref", "chat"),
+        "groot_session": payload.get("groot_session", ""),
+        "groot_campaign": payload.get("groot_campaign", ""),
+        "product_page": payload.get("product_page", ""),
+        "created_at": datetime.now(timezone.utc),
+    }
+
+    # Deduplicate — don't record the same order twice
+    existing = await conversions_collection().find_one({"order_number": order_number})
+    if existing:
+        return {"status": "already_tracked", "order_number": order_number}
+
+    await conversions_collection().insert_one(doc)
+    logger.info(f"Groot conversion tracked: order={order_number}, total={doc['order_total']}, session={doc['groot_session']}")
+    return {"status": "tracked", "order_number": order_number}
