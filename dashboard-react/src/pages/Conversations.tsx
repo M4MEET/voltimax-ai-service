@@ -324,6 +324,7 @@ export default function Conversations() {
         open={modalOpen}
         onClose={() => { setModalOpen(false); setModalData(null); }}
         title={modalData ? `${modalData.session.customer_name || 'Anonymous'} ${modalData.session.chat_id ? `— ${modalData.session.chat_id}` : ''}` : 'Loading...'}
+        size="lg"
       >
         {modalLoading ? (
           <div className="space-y-4 py-4">
