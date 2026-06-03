@@ -44,8 +44,8 @@ config.local.yaml
 # Knowledge base uploads (user data)
 knowledge_files/
 
-# Static form PDFs (uploaded by admin, not source code)
-static/forms/*.pdf
+# Static form PDFs (keep Batteriepfand templates, ignore user uploads)
+static/forms/uploads/
 
 # Dashboard build output (generated)
 dashboard-build/
