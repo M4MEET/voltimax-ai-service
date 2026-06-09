@@ -160,6 +160,12 @@
   Fallback: hardcoded templates if LangSmith unavailable
   All pipeline functions decorated with @traceable for full tracing.
 
+  LangSmith Tracing:
+    thread_id = chat_id (configurable)  → groups runs by conversation
+    tags: ["groot-chat", "session:{chat_id}", "topic:{topic}"]
+    metadata: session_id, chat_id, topic_id, customer_email, intent, order_number
+    → Search in LangSmith UI by tag "session:FF1CC288" or Threads view
+
   ┌──────────────────────────────┬──────────┬──────────────────────────────────┐
   │ Prompt Name                  │ Type     │ Used By                          │
   ├──────────────────────────────┼──────────┼──────────────────────────────────┤
@@ -296,6 +302,9 @@
   │ • CheaperAd      │           │   vectors, OpenAI│     │ Sonnet   │
   └──────────────────┘           │   embeddings)    │     │ (smart   │
                                  │ • Semantic cache  │     │  routing)│
+  MongoDB URI: mongodb://mongo:27017/?directConnection=true
+  (directConnection bypasses replica set discovery — prevents RSGhost)
+
   ┌──────────────────┐           └────────┬─────────┘     └──────────┘
   │ MongoDB           │◄───────────────────┘               ┌──────────┐
   │ • chat_sessions   │                                    │ Zendesk  │
@@ -1325,7 +1334,7 @@ follow-up — all from within the chat widget, without creating a new ticket.
   - Previous product discussion + "i want the manual" → product_doc_query
 ```
 
-### Product URL Tracking
+### Product URL Tracking & GA4 Attribution
 
 ```
   Every product link includes attribution parameters:
@@ -1341,6 +1350,66 @@ follow-up — all from within the chat widget, without creating a new ticket.
 
   Why not UTM: UTM params override Google Ads attribution.
   Custom groot_* params coexist with existing UTM tracking.
+```
+
+### GA4 Ecommerce Tracking
+
+```
+  GA4 Measurement ID: G-SH7LY32R6E (via DIScoGA4 plugin)
+  All events pushed to window.dataLayer
+
+  ┌──────────────────────┬──────────────────────────────────────────────┐
+  │ Event                │ When / Data                                  │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ groot_chat_started   │ WebSocket auth_success + chat_id linked      │
+  │                      │ params: groot_session, topic                 │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ view_item_list       │ Product card rendered in chat                │
+  │                      │ item_list_id: groot_chat                     │
+  │                      │ items[]: id, name, price, brand, variant     │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ select_item          │ Customer clicks product link in chat         │
+  │                      │ items[]: same as view_item_list              │
+  │                      │ Also sets groot_attribution cookie (30min)   │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ groot_conversion     │ Checkout finish page (if groot_attribution   │
+  │                      │ cookie exists and is < 30min old)            │
+  │                      │ params: order_number, order_total, currency, │
+  │                      │ items_count, groot_session, groot_campaign   │
+  └──────────────────────┴──────────────────────────────────────────────┘
+
+  Funnel in GA4 Explore:
+    view_item_list (groot_chat) → select_item (groot_chat) → groot_conversion
+
+  Custom dimensions to register in GA4 Admin:
+    groot_session, groot_ref, order_number (event scope)
+    order_total (custom metric, event scope)
+```
+
+### Purchase Attribution Flow
+
+```
+  Customer sees product in chat
+         │
+         ▼ (widget fires view_item_list)
+  Customer clicks product link
+         │
+         ▼ (widget fires select_item + sets groot_attribution cookie)
+  Customer lands on product page
+         │
+         ▼ (base.html.twig detects groot_ref param, persists to cookie)
+  Customer adds to cart → proceeds to checkout
+         │
+         ▼
+  Checkout finish page:
+    1. Reads groot_attribution cookie
+    2. Validates < 30 min old
+    3. Pushes groot_conversion to GA4 dataLayer
+    4. POSTs to /api/webhooks/conversion (AI service dashboard)
+    5. Clears cookie (prevent double-counting)
+
+  Deduplication: conversions collection uses order_number as unique key.
+  Dual tracking: GA4 (analytics) + MongoDB (dashboard) independently.
 ```
 
 ## Vehicle Compatibility Check Flow
@@ -1590,7 +1659,16 @@ follow-up — all from within the chat widget, without creating a new ticket.
   ├───────────────────┼────────────────────────────────────────────┤
   │ Conversations     │ Session list, search, transcript viewer,   │
   │                   │ session events timeline, topic tags,        │
-  │                   │ close_reason shown per session              │
+  │                   │ close_reason shown per session,             │
+  │                   │ Event badges: Ticket/Verified/Failed/Switch │
+  │                   │ Quick filters: status, has_ticket, tag      │
+  │                   │ Clickable tags + status to filter           │
+  ├───────────────────┼────────────────────────────────────────────┤
+  │ Products          │ Product recommendation analytics,           │
+  │                   │ Conversion funnel: Shown → Purchased → €    │
+  │                   │ Top recommended products table,             │
+  │                   │ Recent purchases from chat table,           │
+  │                   │ GA4 integration info banner                 │
   ├───────────────────┼────────────────────────────────────────────┤
   │ Agents Config     │ 19 agent cards with test capability,       │
   │                   │ tier badges, search/filter, typing anim    │
@@ -1704,9 +1782,10 @@ follow-up — all from within the chat widget, without creating a new ticket.
   - Flying message animation on send
 
   Dev mode:
-  - IP whitelist in Twig template
-  - Reads CF-Connecting-IP → X-Forwarded-For → clientIp
-  - Supports IPv4 + IPv6 (comma-separated)
+  - Cookie-based: ?groot_dev=SECRET sets 30-day cookie
+  - ?groot_dev=off clears cookie, hides widget
+  - Config: devModeEnabled + devModeSecret in plugin config
+  - No IP whitelist (avoids IPv6 rotation issues)
 
   Session persistence:
   - sessionStorage saves after every message
@@ -1742,6 +1821,11 @@ follow-up — all from within the chat widget, without creating a new ticket.
   ├──────────────────────┼──────────────────────────────────────────────┤
   │ consent_log          │ GDPR consent records (mirrors Shopware DB)   │
   ├──────────────────────┼──────────────────────────────────────────────┤
+  │ conversions          │ Purchase conversions attributed to chat      │
+  │                      │ Fields: order_number, order_total, currency, │
+  │                      │ groot_session, groot_campaign, created_at    │
+  │                      │ Deduped by order_number                     │
+  ├──────────────────────┼──────────────────────────────────────────────┤
   │ logs                 │ Application logs                             │
   └──────────────────────┴──────────────────────────────────────────────┘
 ```
@@ -1761,4 +1845,29 @@ follow-up — all from within the chat widget, without creating a new ticket.
   
   Ensures RAG works on both local (atlas-local) and
   production (standard mongo:7 or atlas-local).
+```
+
+## MongoDB atlas-local Docker Config
+
+```
+  IMPORTANT: atlas-local generates a random replica set name from
+  its container ID on each start. This causes RSGhost errors if the
+  data volume has a stale replica set config from a previous container.
+
+  Prevention:
+  1. Always use directConnection=true in the MongoDB URI
+  2. Use Docker volumes (not bind mounts) for /data/db
+  3. /data/configdb uses a named volume (atlas-local writes its keyfile here)
+  4. privileged: true required for keyfile permissions on Linux
+  5. Backup with mongodump (NOT volume tar) — volume backups include
+     the replica set config and will fail on restore to a new container
+
+  Backup (safe — logical dump, portable):
+    docker compose exec -T mongo mongodump --db voltimax_chat --archive > backup.archive
+
+  Restore:
+    docker compose exec -T mongo mongorestore --archive < backup.archive
+
+  DO NOT backup via:
+    tar czf backup.tar.gz /data/db   ← includes replica set config = breaks on restore
 ```
