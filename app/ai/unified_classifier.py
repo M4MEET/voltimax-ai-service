@@ -43,7 +43,7 @@ If customer HAS a verified order ({{has_order}}):
 
 ALWAYS available (with or without verified order):
   "escalation_ticket" — wants human agent, contact support, support kontaktieren, create ticket
-  "ticket_lookup" — wants to check status of an existing support ticket
+  "ticket_lookup" — customer explicitly asks to CHECK the status of an existing support ticket (e.g. "what's the status of my ticket?", "any update on ticket 12345?"). Do NOT use when customer merely MENTIONS a ticket number as context for an order question (e.g. "this order was created because of ticket 18465" → this is about the order, use "none")
   "compatibility_check" — ONLY when customer mentions a specific vehicle (car make/model/year, motorcycle). Must mention a vehicle — "BMW", "Audi A4", "Golf 7", etc. NEVER use this for product name searches like "Varta H3" or "search for battery" — those are product_query with action "none"
   "batteriepfand" — asking about Batteriepfand, battery deposit return, Pfandrückgabe, Altbatterie zurückgeben, wants to submit Batteriepfand forms
   "account_info" — asking about their account, profile, login, password reset, address management, personal data, Kundenkonto
@@ -82,6 +82,8 @@ RULES:
   - Use "batteriepfand" whenever the customer mentions Batteriepfand, Pfandrückgabe, battery deposit, or Altbatterie return — this is NEVER a product search, always the batteriepfand action
   - Use "clarify" ONLY when the message is genuinely ambiguous with no topic hint (e.g. just "hi", "help" with zero context). Do NOT clarify when the message contains a clear topic word like "Bestellstatus", "Produktsuche", "Retoure", "Rechnung", "Batteriepfand", "Ticket", "Konto" — these always have a clear action even if short
   - Messages with emoji prefixes (📦, 🔋, ↩️, etc.) are suggestion chip clicks — treat the text after the emoji as the intent, NEVER clarify these. Examples: "↩️ Retoure & Erstattung" → rag_query about return policy (action=none), "📦 Bestellstatus" → order_lookup
+  - "ticket_lookup" ONLY when customer explicitly asks to CHECK ticket status. Mentioning a ticket number as context for an order question is NOT a ticket lookup — use "none" to let AI respond
+  - If the SAME card type was already shown in recent conversation and customer asks a follow-up question about the data (e.g. "why is the date so late?" after seeing tracking card), use "none" — let AI explain instead of re-showing the same card
   - When unsure between two specific actions, prefer the more specific action over clarify
 
 COMPLEXITY (pick one):

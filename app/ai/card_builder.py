@@ -276,12 +276,12 @@ def build_order_verified_card(order: dict, order_number: str) -> dict:
         "card_type": "dynamic",
         "style": "green",
         "icon": "\u2713",
-        "title": f"Order #{order_number} Verified",
+        "title": f"Bestellung #{order_number} \u2014 Verifiziert",
         "rows": [
             {"label": "Status", "value": status},
-            {"label": "Items", "value": str(items)},
-            {"label": "Total", "value": f"\u20ac{total:.2f}" if total else "\u2014"},
-            {"label": "Date", "value": date},
+            {"label": "Artikel", "value": str(items)},
+            {"label": "Gesamtbetrag", "value": f"\u20ac{total:.2f}" if total else "\u2014"},
+            {"label": "Bestelldatum", "value": date},
         ],
         "actions": [
             "Sendung verfolgen",
@@ -323,20 +323,20 @@ def build_tracking_card(order: dict, order_number: str) -> dict:
         "cancelled": "\u274c",
     }
     status_labels = {
-        "shipped": "Shipped",
-        "shipped_partially": "Partially Shipped",
-        "open": "Being Prepared",
-        "returned": "Returned",
-        "returned_partially": "Partially Returned",
-        "cancelled": "Cancelled",
+        "shipped": "Versendet",
+        "shipped_partially": "Teilweise versendet",
+        "open": "In Vorbereitung",
+        "returned": "Retourniert",
+        "returned_partially": "Teilweise retourniert",
+        "cancelled": "Storniert",
     }
     status_descs = {
-        "shipped": "Your order has been shipped and is on its way.",
-        "shipped_partially": "Some items have been shipped. The rest are being prepared.",
-        "open": "Your order is being prepared. Tracking will be available once shipped.",
-        "returned": "Your return has been received. Refund is being processed.",
-        "returned_partially": "Some items have been returned. Partial refund is being processed.",
-        "cancelled": "This delivery has been cancelled.",
+        "shipped": "Deine Bestellung wurde versendet und ist unterwegs.",
+        "shipped_partially": "Ein Teil der Bestellung wurde versendet. Der Rest wird vorbereitet.",
+        "open": "Deine Bestellung wird vorbereitet. Die Sendungsverfolgung ist verf\u00fcgbar, sobald die Lieferung versendet wurde.",
+        "returned": "Deine Retoure ist eingegangen. Die R\u00fcckerstattung wird bearbeitet.",
+        "returned_partially": "Ein Teil wurde retourniert. Die teilweise R\u00fcckerstattung wird bearbeitet.",
+        "cancelled": "Diese Lieferung wurde storniert.",
     }
 
     style = style_map.get(delivery_status, "blue")
@@ -345,19 +345,19 @@ def build_tracking_card(order: dict, order_number: str) -> dict:
 
     rows = [
         {
-            "label": "Delivery",
+            "label": "Lieferstatus",
             "value": label,
             "style": "success" if delivery_status and "shipped" in delivery_status else "default",
         },
         {
-            "label": "Order Status",
-            "value": order.get("statusLabel") or order.get("status", "Unknown"),
+            "label": "Bestellstatus",
+            "value": order.get("statusLabel") or order.get("status", "Unbekannt"),
         },
     ]
     if carrier:
-        rows.append({"label": "Carrier", "value": carrier})
+        rows.append({"label": "Versanddienstleister", "value": carrier})
     if ship_date:
-        rows.append({"label": "Shipped", "value": ship_date})
+        rows.append({"label": "Versanddatum", "value": ship_date})
 
     links = []
     for code in tracking_codes:
@@ -436,16 +436,16 @@ def build_payment_card(order: dict, order_number: str) -> dict:
     date = str(order.get("orderDate", ""))[:10]
 
     payment_info = {
-        "paid": {"label": "\u2705 Paid", "style": "green", "icon": "\u2705"},
-        "authorized": {"label": "\u2705 Authorized", "style": "green", "icon": "\u2705"},
-        "open": {"label": "\u23f3 Payment Pending", "style": "blue", "icon": "\u23f3"},
-        "refunded": {"label": "\u21a9\ufe0f Fully Refunded", "style": "red", "icon": "\u21a9\ufe0f"},
-        "refunded_partially": {"label": "\u21a9\ufe0f Partially Refunded", "style": "amber", "icon": "\u21a9\ufe0f"},
-        "paid_partially": {"label": "\u26a0\ufe0f Partially Paid", "style": "amber", "icon": "\u26a0\ufe0f"},
-        "failed": {"label": "\u274c Payment Failed", "style": "red", "icon": "\u274c"},
-        "cancelled": {"label": "\u274c Payment Cancelled", "style": "gray", "icon": "\u274c"},
-        "reminded": {"label": "\U0001f4e7 Reminder Sent", "style": "amber", "icon": "\U0001f4e7"},
-        "chargeback": {"label": "\u26a0\ufe0f Chargeback", "style": "red", "icon": "\u26a0\ufe0f"},
+        "paid": {"label": "\u2705 Bezahlt", "style": "green", "icon": "\u2705"},
+        "authorized": {"label": "\u2705 Autorisiert", "style": "green", "icon": "\u2705"},
+        "open": {"label": "\u23f3 Zahlung ausstehend", "style": "blue", "icon": "\u23f3"},
+        "refunded": {"label": "\u21a9\ufe0f Vollst\u00e4ndig erstattet", "style": "red", "icon": "\u21a9\ufe0f"},
+        "refunded_partially": {"label": "\u21a9\ufe0f Teilweise erstattet", "style": "amber", "icon": "\u21a9\ufe0f"},
+        "paid_partially": {"label": "\u26a0\ufe0f Teilweise bezahlt", "style": "amber", "icon": "\u26a0\ufe0f"},
+        "failed": {"label": "\u274c Zahlung fehlgeschlagen", "style": "red", "icon": "\u274c"},
+        "cancelled": {"label": "\u274c Zahlung storniert", "style": "gray", "icon": "\u274c"},
+        "reminded": {"label": "\U0001f4e7 Zahlungserinnerung gesendet", "style": "amber", "icon": "\U0001f4e7"},
+        "chargeback": {"label": "\u26a0\ufe0f R\u00fcckbuchung", "style": "red", "icon": "\u26a0\ufe0f"},
     }
     info = payment_info.get(payment, {"label": payment, "style": "gray", "icon": "\u2753"})
 
@@ -493,11 +493,11 @@ def build_payment_card(order: dict, order_number: str) -> dict:
         "card_type": "dynamic",
         "style": info["style"],
         "icon": info["icon"],
-        "title": f"Payment \u2014 Order #{order_number}",
+        "title": f"Zahlung \u2014 Bestellung #{order_number}",
         "rows": [
-            {"label": "Payment", "value": info["label"], "style": "success" if payment == "paid" else "default"},
-            {"label": "Total", "value": f"\u20ac{total:.2f}" if total else "\u2014"},
-            {"label": "Order Date", "value": date},
+            {"label": "Zahlungsstatus", "value": info["label"], "style": "success" if payment == "paid" else "default"},
+            {"label": "Gesamtbetrag", "value": f"\u20ac{total:.2f}" if total else "\u2014"},
+            {"label": "Bestelldatum", "value": date},
         ],
         "actions": actions,
         "meta_actions": ["Andere Bestellung pr\u00fcfen"],
@@ -538,21 +538,21 @@ def build_order_failed_card(order_number: str) -> dict:
         "card_type": "dynamic",
         "style": "red",
         "icon": "\u2717",
-        "title": f"Order #{order_number} \u2014 Verification Failed",
+        "title": f"Bestellung #{order_number} \u2014 Verifizierung fehlgeschlagen",
         "rows": [],
         "description": (
-            "We couldn't find this order with the details provided. "
-            "Please double-check your order number and billing postcode.\n\n"
-            "\u2022 Check the order confirmation email for the correct order number\n"
-            "\u2022 Use the postcode from the billing address, not shipping\n"
-            "\u2022 Make sure there are no extra spaces or typos"
+            "Wir konnten diese Bestellung mit den angegebenen Daten nicht finden. "
+            "Bitte \u00fcberpr\u00fcfe deine Bestellnummer und Rechnungs-PLZ.\n\n"
+            "\u2022 Pr\u00fcfe die Best\u00e4tigungs-E-Mail f\u00fcr die richtige Bestellnummer\n"
+            "\u2022 Verwende die PLZ der Rechnungsadresse, nicht der Lieferadresse\n"
+            "\u2022 Achte auf Leerzeichen oder Tippfehler"
         ),
         "actions": [
-            "Try again",
+            "Erneut versuchen",
             "Ticket-Status pr\u00fcfen",
             "Produktfrage",
         ],
-        "meta_actions": ["Contact Support"],
+        "meta_actions": ["Support kontaktieren"],
     }
 
 
@@ -563,9 +563,9 @@ def build_warranty_card(order: dict, order_number: str) -> dict:
     for item in items[:5]:
         label = item.get("label", "Unknown")
         if "batterie" in label.lower() or "battery" in label.lower():
-            rows.append({"label": label[:40], "value": "2-4 years warranty", "style": "success"})
+            rows.append({"label": label[:40], "value": "2\u20134 Jahre Garantie", "style": "success"})
         elif "solar" in label.lower() or "panel" in label.lower():
-            rows.append({"label": label[:40], "value": "10-25 years warranty", "style": "success"})
+            rows.append({"label": label[:40], "value": "10\u201325 Jahre Garantie", "style": "success"})
         elif "pfand" not in label.lower():
             rows.append({"label": label[:40], "value": "2 years (legal)", "style": "default"})
 
@@ -593,7 +593,7 @@ def build_ticket_created_card(ticket_id: str, topic: str = "", summary: str = ""
     ]
     if topic:
         rows.append({"label": "Topic", "value": topic, "style": "default"})
-    rows.append({"label": "Status", "value": "Open \u2014 awaiting review", "style": "default"})
+    rows.append({"label": "Status", "value": "Offen \u2014 wird bearbeitet", "style": "default"})
 
     return {
         "card_type": "dynamic",
@@ -620,16 +620,16 @@ def build_ticket_lookup_card() -> dict:
         "card_type": "dynamic",
         "style": "blue",
         "icon": "\U0001F50D",
-        "title": "Check Ticket Status",
-        "description": "Enter your ticket number and email to check the status of your support request.",
+        "title": "Ticket-Status pr\u00fcfen",
+        "description": "Gib deine Ticketnummer und E-Mail-Adresse ein, um den Status deiner Supportanfrage zu pr\u00fcfen.",
         "form": {
             "field": "ticket_verify",
             "fields": [
-                {"name": "ticket_id", "label": "Ticket number", "placeholder": "#...", "type": "text"},
-                {"name": "email", "label": "Email", "placeholder": "your@email.com", "type": "text"},
+                {"name": "ticket_id", "label": "Ticketnummer", "placeholder": "#...", "type": "text"},
+                {"name": "email", "label": "E-Mail", "placeholder": "deine@email.com", "type": "text"},
             ],
             "action": "check_ticket",
-            "submit_label": "Check Status \u2192",
+            "submit_label": "Status pr\u00fcfen \u2192",
         },
     }
 
@@ -654,10 +654,10 @@ def build_ticket_status_card(ticket: dict) -> dict:
 
     rows = [
         {"label": "Status", "value": status_labels.get(status, status.title()), "style": "success" if status == "solved" else "default"},
-        {"label": "Priority", "value": priority.title(), "style": "default"},
-        {"label": "Subject", "value": ticket.get("subject", "")[:60], "style": "default"},
-        {"label": "Created", "value": ticket.get("created_at", ""), "style": "default"},
-        {"label": "Updated", "value": ticket.get("updated_at", ""), "style": "default"},
+        {"label": "Priorit\u00e4t", "value": priority.title(), "style": "default"},
+        {"label": "Betreff", "value": ticket.get("subject", "")[:60], "style": "default"},
+        {"label": "Erstellt", "value": ticket.get("created_at", ""), "style": "default"},
+        {"label": "Aktualisiert", "value": ticket.get("updated_at", ""), "style": "default"},
     ]
 
     links = [
@@ -719,8 +719,8 @@ def build_ticket_urgent_card(ticket_id: str) -> dict:
         "icon": "\U0001F6A8",
         "title": f"Ticket #{ticket_id} \u2014 Marked as Urgent",
         "rows": [
-            {"label": "Priority", "value": "Urgent", "style": "default"},
-            {"label": "Status", "value": "Open \u2014 team notified", "style": "default"},
+            {"label": "Priorit\u00e4t", "value": "Dringend", "style": "default"},
+            {"label": "Status", "value": "Offen \u2014 Team benachrichtigt", "style": "default"},
         ],
         "links": [
             {"label": f"\U0001F4CB Ticket #{ticket_id}", "url": "", "copy": ticket_id},

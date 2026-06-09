@@ -312,6 +312,19 @@ class ConnectionHandler:
                     card_action = classification["action"]
                     logger.info(f"Unified classifier: msg={msg.content[:50]!r} → action={card_action} intent={classification['intent']} complexity={classification.get('complexity','?')}")
 
+                    # ── Prevent re-showing the same card on follow-up questions ──
+                    # If the same card was shown in the last 3 events, let AI answer conversationally
+                    if card_action not in ("none", "clarify", "order_lookup", "another_order"):
+                        _recent_events = (session_data or {}).get("events", [])[-5:]
+                        _recent_card_actions = [
+                            e.get("detail", "").split("(")[0].strip().lower()
+                            for e in _recent_events
+                            if e.get("type") == "card_action"
+                        ]
+                        if card_action.lower() in _recent_card_actions:
+                            logger.info(f"Duplicate card suppressed: {card_action} was shown recently → routing to AI")
+                            card_action = "none"
+
                     # ── Smart model routing: Haiku for simple, Sonnet for complex ──
                     _use_complex_model = classification.get("complexity") == "complex"
 
