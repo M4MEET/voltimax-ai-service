@@ -253,6 +253,11 @@ class ConnectionHandler:
                         await self._send_ws(websocket, OutgoingMessage(type="play_sound", message="incoming"))
                         continue
 
+                    # Handle "Noch Fragen zum Batteriepfand" chip — let AI answer from KB, don't re-show card
+                    _skip_classifier = False
+                    if content_lower in ("noch fragen zum batteriepfand", "noch fragen"):
+                        _skip_classifier = True
+
                     # Handle "Contact Support" from error card meta_actions
                     if content_lower == "contact support":
                         await self.chat_manager.add_message(session_id, MessageRole.USER, msg.content)
@@ -307,20 +312,25 @@ class ConnectionHandler:
                     _recent_history = await self.chat_manager.get_session_messages(session_id)
 
                     _chat_id = (session_data or {}).get("chat_id") or session_id or ""
-                    classification = await classify_message(
-                        message=msg.content,
-                        has_verified_order=bool(verified_order),
-                        order_number=verified_order or "",
-                        topic=topic_id,
-                        has_cached_data=bool(cached_order),
-                        history=_recent_history,
-                        llm_provider=session_provider,
-                        chat_id=_chat_id,
-                        langsmith_extra={
-                            "metadata": {"chat_id": _chat_id, "topic_id": topic_id},
-                            "tags": [f"session:{_chat_id}", f"topic:{topic_id}"],
-                        },
-                    )
+                    if _skip_classifier:
+                        # Chip click that should go directly to AI (e.g. "Noch Fragen zum Batteriepfand")
+                        classification = {"action": "none", "intent": "rag_query", "search_query": "Batteriepfand", "complexity": "simple"}
+                        logger.info(f"Skipping classifier for chip: {msg.content[:50]!r} → routing to AI")
+                    else:
+                        classification = await classify_message(
+                            message=msg.content,
+                            has_verified_order=bool(verified_order),
+                            order_number=verified_order or "",
+                            topic=topic_id,
+                            has_cached_data=bool(cached_order),
+                            history=_recent_history,
+                            llm_provider=session_provider,
+                            chat_id=_chat_id,
+                            langsmith_extra={
+                                "metadata": {"chat_id": _chat_id, "topic_id": topic_id},
+                                "tags": [f"session:{_chat_id}", f"topic:{topic_id}"],
+                            },
+                        )
                     card_action = classification["action"]
                     logger.info(f"Unified classifier: msg={msg.content[:50]!r} → action={card_action} intent={classification['intent']} complexity={classification.get('complexity','?')}")
 
