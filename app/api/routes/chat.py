@@ -194,8 +194,29 @@ async def batteriepfand_upload(
     import logging
     logger = logging.getLogger(__name__)
 
+    # ── Field validation ──
+    import re
+    field_errors: dict[str, str] = {}
+    if not customer_name or not customer_name.strip():
+        field_errors["customer_name"] = "Bitte gib deinen Namen ein."
+    if not customer_email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", customer_email.strip()):
+        field_errors["customer_email"] = "Bitte gib eine g\u00fcltige E-Mail-Adresse ein."
+    if not form_type or form_type not in ("entsorgungsnachweis", "ruecksendung"):
+        field_errors["form_type"] = "Bitte w\u00e4hle ein Formular aus."
     if not file.filename or not file.filename.lower().endswith(".pdf"):
-        return {"error": f"'{file.filename}' ist keine PDF-Datei", "success": False}
+        field_errors["file"] = "Bitte lade eine PDF-Datei hoch."
+
+    if field_errors:
+        # Log failed attempt as session event
+        if session_id:
+            try:
+                from app.chat.manager import ChatManager
+                mgr = ChatManager()
+                missing = ", ".join(field_errors.keys())
+                await mgr.add_session_event(session_id, "batteriepfand_validation_failed", f"Fehlende Felder: {missing}")
+            except Exception:
+                pass
+        return {"success": False, "field_errors": field_errors}
 
     type_labels = {
         "entsorgungsnachweis": "Entsorgungsnachweis",
@@ -260,4 +281,9 @@ async def batteriepfand_upload(
 
     except Exception as e:
         logger.error(f"Batteriepfand upload failed: {e}")
-        return {"error": str(e), "success": False}
+        err_str = str(e)
+        # Friendly error messages instead of raw API errors
+        if "422" in err_str or "Unprocessable" in err_str:
+            friendly = "Die eingegebenen Daten sind ung\u00fcltig. Bitte \u00fcberpr\u00fcfe deine E-Mail-Adresse und versuche es erneut."
+            return {"success": False, "error": friendly, "field_errors": {"customer_email": "E-Mail-Adresse scheint ung\u00fcltig zu sein."}}
+        return {"success": False, "error": "Ein Fehler ist aufgetreten. Bitte versuche es erneut."}
