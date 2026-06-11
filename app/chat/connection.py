@@ -335,15 +335,32 @@ class ConnectionHandler:
                     logger.info(f"Unified classifier: msg={msg.content[:50]!r} → action={card_action} intent={classification['intent']} complexity={classification.get('complexity','?')}")
 
                     # ── Prevent re-showing the same card on follow-up questions ──
-                    # If the same card was shown in the last 3 events, let AI answer conversationally
-                    if card_action not in ("none", "clarify", "order_lookup", "another_order", "batteriepfand"):
-                        _recent_events = (session_data or {}).get("events", [])[-5:]
+                    # If the same card was shown in the last 5 events, let AI answer conversationally
+                    if card_action not in ("none", "clarify", "order_lookup", "another_order"):
+                        _recent_events = (session_data or {}).get("events", [])[-6:]
                         _recent_card_actions = [
                             e.get("detail", "").split("(")[0].strip().lower()
                             for e in _recent_events
                             if e.get("type") == "card_action"
                         ]
-                        if card_action.lower() in _recent_card_actions:
+                        _recent_bp_events = [
+                            e.get("type", "")
+                            for e in _recent_events
+                            if e.get("type", "").startswith("batteriepfand")
+                        ]
+                        if card_action == "batteriepfand":
+                            # Batteriepfand: suppress card if download was already shown,
+                            # UNLESS the user explicitly wants to upload
+                            _bp_upload_words = [
+                                "ausgef\u00fcllt", "hochladen", "upload", "fertig", "submit",
+                                "formulare fertig", "filled", "done", "ready", "einreichen",
+                                "habe ich", "bereits", "schon ausgef", "completed",
+                            ]
+                            _wants_upload = any(w in content_lower for w in _bp_upload_words)
+                            if not _wants_upload and (_recent_bp_events or "batteriepfand" in _recent_card_actions):
+                                logger.info(f"Batteriepfand card already shown → routing follow-up to AI")
+                                card_action = "none"
+                        elif card_action.lower() in _recent_card_actions:
                             logger.info(f"Duplicate card suppressed: {card_action} was shown recently → routing to AI")
                             card_action = "none"
 
