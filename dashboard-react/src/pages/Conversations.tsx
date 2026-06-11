@@ -60,6 +60,19 @@ export default function Conversations() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [eventsOpen, setEventsOpen] = useState(false);
+  const [liveSessionIds, setLiveSessionIds] = useState<Set<string>>(new Set());
+
+  // Poll active connections every 10s
+  useEffect(() => {
+    const fetchLive = () => {
+      apiFetch<{ active: number; session_ids: string[] }>('/api/admin/active-connections')
+        .then((res) => setLiveSessionIds(new Set(res.session_ids || [])))
+        .catch(() => {});
+    };
+    fetchLive();
+    const interval = setInterval(fetchLive, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const hasFilters = !!(topic || filterTag || filterStatus || filterTicket);
 
@@ -159,20 +172,33 @@ export default function Conversations() {
     {
       key: 'status',
       header: 'Status',
-      render: (r) => (
+      render: (r) => {
+        const isLive = liveSessionIds.has(r.id);
+        return (
         <div className="flex flex-col gap-0.5">
-          <Badge
-            color={statusColor[r.status] || 'gray'}
-            className="cursor-pointer hover:ring-2"
-            onClick={() => { setFilterStatus(r.status); setPage(0); }}
-          >
-            {r.status}
-          </Badge>
+          {isLive ? (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-green-700">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+              </span>
+              Live
+            </span>
+          ) : (
+            <Badge
+              color={statusColor[r.status] || 'gray'}
+              className="cursor-pointer hover:ring-2"
+              onClick={() => { setFilterStatus(r.status); setPage(0); }}
+            >
+              {r.status}
+            </Badge>
+          )}
           {r.close_reason && r.close_reason !== 'completed' && (
             <span className="text-[10px] text-gray-400">{r.close_reason}</span>
           )}
         </div>
-      ),
+        );
+      },
     },
     { key: 'messages', header: 'Messages', render: (r) => r.message_count },
     {

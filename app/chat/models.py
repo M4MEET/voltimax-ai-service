@@ -62,6 +62,7 @@ class IncomingMessage(BaseModel):
     message_id: str | None = None
     feedback: str | None = None
     rating: int | None = None
+    chat_id: str | None = None  # Widget's local session ID for reconnection
     # Confirmation flow
     action: str | None = None
     fields: dict | None = None  # { key: value } — confirmed/edited field values

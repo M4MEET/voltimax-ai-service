@@ -294,12 +294,12 @@ async def get_prompts() -> dict:
 
 @router.get("/active-connections")
 async def get_active_connections() -> dict:
-    """Return the current number of active WebSocket connections."""
+    """Return the current number of active WebSocket connections and their session IDs."""
     from app.chat.connection import get_connection_handler
 
     handler = get_connection_handler()
-    count = len(handler.active_connections)
-    return {"active": count}
+    active_ids = list(handler.active_connections.keys())
+    return {"active": len(active_ids), "session_ids": active_ids}
 
 
 # ---------------------------------------------------------------------------

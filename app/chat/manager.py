@@ -59,6 +59,23 @@ class ChatManager:
 
         return session
 
+    async def find_active_session_by_chat_id(self, chat_id: str) -> dict | None:
+        """Find an existing session with this chat_id that isn't closed."""
+        if not chat_id:
+            return None
+        return await sessions_collection().find_one(
+            {"chat_id": chat_id, "status": {"$ne": "closed"}},
+            {"_id": 0},
+            sort=[("created_at", -1)],
+        )
+
+    async def reactivate_session(self, session_id: str) -> None:
+        """Mark a session as active again (reconnection)."""
+        await sessions_collection().update_one(
+            {"id": session_id},
+            {"$set": {"status": "active", "updated_at": datetime.utcnow()}},
+        )
+
     async def set_topic(self, session_id: str, topic_id: str, llm_provider: str) -> None:
         await sessions_collection().update_one(
             {"id": session_id},

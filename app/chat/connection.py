@@ -97,14 +97,26 @@ class ConnectionHandler:
                         await websocket.close()
                         return
 
-                    session = await self.chat_manager.create_session(
-                        customer_name=user_claims.get("name", "Guest"),
-                        customer_email=user_claims.get("email") or "",
-                        order_number=user_claims.get("order_number"),
-                        sales_channel_id=user_claims.get("sales_channel_id"),
-                        topic_id="general",
-                    )
-                    session_id = session.id
+                    # Reuse existing session if reconnecting with same chat_id
+                    _existing = None
+                    if msg.chat_id:
+                        _existing = await self.chat_manager.find_active_session_by_chat_id(msg.chat_id)
+
+                    if _existing:
+                        session_id = _existing["id"]
+                        await self.chat_manager.reactivate_session(session_id)
+                        logger.info(f"Reusing existing session {session_id} for chat_id={msg.chat_id}")
+                    else:
+                        session = await self.chat_manager.create_session(
+                            customer_name=user_claims.get("name", "Guest"),
+                            customer_email=user_claims.get("email") or "",
+                            order_number=user_claims.get("order_number"),
+                            sales_channel_id=user_claims.get("sales_channel_id"),
+                            topic_id="general",
+                            chat_id=msg.chat_id,
+                        )
+                        session_id = session.id
+
                     self.active_connections[session_id] = websocket
 
                     # Auto-set general topic so messages work without select_topic
