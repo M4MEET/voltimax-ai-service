@@ -231,33 +231,6 @@ class ConnectionHandler:
                         ))
                         continue
 
-                    # Handle "Ich habe die Formulare ausgefüllt" chip from Batteriepfand download card
-                    if content_lower in ("ich habe die formulare ausgefüllt", "ich habe die formulare ausgef\u00fcllt"):
-                        from app.ai.card_builder import build_batteriepfand_upload_card
-                        await self.chat_manager.add_message(session_id, MessageRole.USER, msg.content)
-                        upload_card = build_batteriepfand_upload_card()
-                        for field in upload_card.get("fields", []):
-                            if field["key"] == "customer_name":
-                                field["value"] = user_claims.get("name", "")
-                            elif field["key"] == "customer_email":
-                                field["value"] = user_claims.get("email", "")
-                        intro = "Super! W\u00e4hle das Formular aus und lade die ausgef\u00fcllte PDF hoch:"
-                        import asyncio as _aio
-                        await self._send_ws(websocket, OutgoingMessage(type="typing"))
-                        await _aio.sleep(0.8)
-                        ai_msg = await self.chat_manager.add_message(session_id, MessageRole.ASSISTANT, intro)
-                        await self._send_ws(websocket, OutgoingMessage(
-                            type="ai_card", content=intro, message_id=ai_msg.id,
-                            info_card=upload_card,
-                        ))
-                        await self._send_ws(websocket, OutgoingMessage(type="play_sound", message="incoming"))
-                        continue
-
-                    # Handle "Noch Fragen zum Batteriepfand" chip — let AI answer from KB, don't re-show card
-                    _skip_classifier = False
-                    if content_lower in ("noch fragen zum batteriepfand", "noch fragen"):
-                        _skip_classifier = True
-
                     # Handle "Contact Support" from error card meta_actions
                     if content_lower == "contact support":
                         await self.chat_manager.add_message(session_id, MessageRole.USER, msg.content)
@@ -312,25 +285,20 @@ class ConnectionHandler:
                     _recent_history = await self.chat_manager.get_session_messages(session_id)
 
                     _chat_id = (session_data or {}).get("chat_id") or session_id or ""
-                    if _skip_classifier:
-                        # Chip click that should go directly to AI (e.g. "Noch Fragen zum Batteriepfand")
-                        classification = {"action": "none", "intent": "rag_query", "search_query": "Batteriepfand", "complexity": "simple"}
-                        logger.info(f"Skipping classifier for chip: {msg.content[:50]!r} → routing to AI")
-                    else:
-                        classification = await classify_message(
-                            message=msg.content,
-                            has_verified_order=bool(verified_order),
-                            order_number=verified_order or "",
-                            topic=topic_id,
-                            has_cached_data=bool(cached_order),
-                            history=_recent_history,
-                            llm_provider=session_provider,
-                            chat_id=_chat_id,
-                            langsmith_extra={
-                                "metadata": {"chat_id": _chat_id, "topic_id": topic_id},
-                                "tags": [f"session:{_chat_id}", f"topic:{topic_id}"],
-                            },
-                        )
+                    classification = await classify_message(
+                        message=msg.content,
+                        has_verified_order=bool(verified_order),
+                        order_number=verified_order or "",
+                        topic=topic_id,
+                        has_cached_data=bool(cached_order),
+                        history=_recent_history,
+                        llm_provider=session_provider,
+                        chat_id=_chat_id,
+                        langsmith_extra={
+                            "metadata": {"chat_id": _chat_id, "topic_id": topic_id},
+                            "tags": [f"session:{_chat_id}", f"topic:{topic_id}"],
+                        },
+                    )
                     card_action = classification["action"]
                     logger.info(f"Unified classifier: msg={msg.content[:50]!r} → action={card_action} intent={classification['intent']} complexity={classification.get('complexity','?')}")
 
@@ -350,15 +318,13 @@ class ConnectionHandler:
                         ]
                         if card_action == "batteriepfand":
                             # Batteriepfand: suppress card if download was already shown,
-                            # UNLESS the user explicitly wants to upload
-                            _bp_upload_words = [
-                                "ausgef\u00fcllt", "hochladen", "upload", "fertig", "submit",
-                                "formulare fertig", "filled", "done", "ready", "einreichen",
-                                "habe ich", "bereits", "schon ausgef", "completed",
-                            ]
-                            _wants_upload = any(w in content_lower for w in _bp_upload_words)
-                            if not _wants_upload and (_recent_bp_events or "batteriepfand" in _recent_card_actions):
-                                logger.info(f"Batteriepfand card already shown → routing follow-up to AI")
+                            # UNLESS the classifier intent suggests the user wants to proceed
+                            # (intent=direct means "I'm done/ready" → show upload card)
+                            # (intent=rag_query means "I have a question" → let AI answer)
+                            _intent = classification.get("intent", "")
+                            _bp_already_shown = bool(_recent_bp_events or "batteriepfand" in _recent_card_actions)
+                            if _bp_already_shown and _intent != "direct":
+                                logger.info(f"Batteriepfand card already shown + intent={_intent} → routing to AI")
                                 card_action = "none"
                         elif card_action.lower() in _recent_card_actions:
                             logger.info(f"Duplicate card suppressed: {card_action} was shown recently → routing to AI")
@@ -574,13 +540,11 @@ class ConnectionHandler:
                             continue
 
                         elif card_action == "batteriepfand":
-                            # Check if customer wants to upload (follow-up) or needs download first
-                            _bp_upload_words = [
-                                "ausgef\u00fcllt", "hochladen", "upload", "fertig", "submit",
-                                "formulare fertig", "filled", "done", "ready", "einreichen",
-                                "habe ich", "bereits", "schon ausgef", "completed",
-                            ]
-                            _wants_upload = any(w in content_lower for w in _bp_upload_words)
+                            # Use classifier intent to decide: direct = "I'm done/ready" → upload
+                            # rag_query/other = first time or question → download card
+                            _bp_intent = classification.get("intent", "")
+                            _bp_events = [e for e in (session_data or {}).get("events", []) if e.get("type", "").startswith("batteriepfand")]
+                            _wants_upload = _bp_intent == "direct" and len(_bp_events) > 0
 
                             if _wants_upload:
                                 # Show upload form inside AI bubble
