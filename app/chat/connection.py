@@ -326,7 +326,7 @@ class ConnectionHandler:
 
                     # ── Prevent re-showing the same card on follow-up questions ──
                     # If the same card was shown in the last 3 events, let AI answer conversationally
-                    if card_action not in ("none", "clarify", "order_lookup", "another_order"):
+                    if card_action not in ("none", "clarify", "order_lookup", "another_order", "batteriepfand"):
                         _recent_events = (session_data or {}).get("events", [])[-5:]
                         _recent_card_actions = [
                             e.get("detail", "").split("(")[0].strip().lower()
@@ -548,7 +548,11 @@ class ConnectionHandler:
 
                         elif card_action == "batteriepfand":
                             # Check if customer wants to upload (follow-up) or needs download first
-                            _bp_upload_words = ["ausgef\u00fcllt", "hochladen", "upload", "fertig", "submit", "formulare fertig"]
+                            _bp_upload_words = [
+                                "ausgef\u00fcllt", "hochladen", "upload", "fertig", "submit",
+                                "formulare fertig", "filled", "done", "ready", "einreichen",
+                                "habe ich", "bereits", "schon ausgef", "completed",
+                            ]
                             _wants_upload = any(w in content_lower for w in _bp_upload_words)
 
                             if _wants_upload:
