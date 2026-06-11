@@ -30,6 +30,8 @@ const eventTypeColor: Record<string, string> = {
   verification_success: 'green',
   verification_failed: 'red',
   ticket_created: 'purple',
+  batteriepfand_submitted: 'green',
+  batteriepfand: 'blue',
   button_clicked: 'gray',
   topic_auto_switched: 'amber',
 };
@@ -40,6 +42,7 @@ function getEventBadges(events?: SessionEvent[]): { label: string; color: string
   const types = new Set(events.map((e) => e.type));
   const badges: { label: string; color: string }[] = [];
   if (types.has('ticket_created')) badges.push({ label: '🎫 Ticket', color: 'purple' });
+  if (types.has('batteriepfand_submitted')) badges.push({ label: '🔋 Batteriepfand', color: 'green' });
   if (types.has('verification_success')) badges.push({ label: '✓ Verified', color: 'green' });
   if (types.has('verification_failed')) badges.push({ label: '✗ Verify failed', color: 'red' });
   if (types.has('topic_auto_switched')) badges.push({ label: '↻ Switched', color: 'amber' });

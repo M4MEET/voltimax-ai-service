@@ -233,10 +233,24 @@ async def batteriepfand_upload(
         if session_id:
             try:
                 from app.chat.manager import ChatManager
+                from app.chat.models import MessageRole
                 mgr = ChatManager()
+                # Log session event
                 await mgr.add_session_event(
                     session_id, "batteriepfand_submitted",
                     f"Zendesk #{ticket_id} \u2014 {type_label}",
+                )
+                # Add confirmation message to chat transcript so it's visible in dashboard
+                confirm_msg = (
+                    f"\u2705 Dein Batteriepfand-Formular ({type_label}) wurde erfolgreich eingereicht!\n\n"
+                    f"**Zendesk Ticket #{ticket_id}** wurde erstellt. "
+                    f"Unser Team wird deine Anfrage pr\u00fcfen und sich bei dir melden."
+                )
+                await mgr.add_message(session_id, MessageRole.ASSISTANT, confirm_msg)
+                # Also log ticket_created event so it shows in dashboard badges
+                await mgr.add_session_event(
+                    session_id, "ticket_created",
+                    f"Batteriepfand #{ticket_id} \u2014 {type_label}",
                 )
             except Exception:
                 pass
