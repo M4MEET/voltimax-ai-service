@@ -31,13 +31,22 @@ class ZendeskAdapter(BaseTicketAdapter):
         metadata: dict | None = None,
         internal_note: str | None = None,
     ) -> str:
-        # Step 1: Create ticket with internal-only first comment (no email to customer)
+        ref_name = customer_name or "Kunde"
+
+        # Step 1: Create ticket — public comment with customer's message (triggers Zendesk email)
+        public_body = (
+            f"Hallo {ref_name},<br><br>"
+            f"vielen Dank f\u00fcr Ihre Nachricht. Ihr Anliegen wurde erfolgreich an unser "
+            f"Support-Team weitergeleitet. Wir melden uns schnellstm\u00f6glich bei Ihnen.<br><br>"
+            f"\u201e<i>{description}</i>\u201c"
+        )
+
         payload = {
             "ticket": {
                 "subject": subject,
                 "comment": {
-                    "html_body": description,
-                    "public": False,
+                    "html_body": public_body,
+                    "public": True,
                 },
                 "requester": {
                     "name": customer_name or "Guest",
@@ -61,7 +70,7 @@ class ZendeskAdapter(BaseTicketAdapter):
             data = response.json()
             ticket_id = str(data["ticket"]["id"])
 
-            # Step 2: Add internal note with AI summary + transcript + metadata
+            # Step 2: Internal note — AI summary + transcript + metadata (support only)
             if internal_note:
                 try:
                     await client.put(
@@ -71,26 +80,6 @@ class ZendeskAdapter(BaseTicketAdapter):
                     )
                 except Exception as e:
                     logger.error(f"Failed to add internal note to ticket #{ticket_id}: {e}")
-
-            # Step 3: One public comment — customer gets ONE email with ticket number + their issue
-            try:
-                ref_name = customer_name or "Kunde"
-                public_body = (
-                    f"Hallo {ref_name},<br><br>"
-                    f"vielen Dank f\u00fcr Ihre Nachricht. Ihr Anliegen wurde erfolgreich an unser "
-                    f"Support-Team weitergeleitet.<br><br>"
-                    f"<b>Ihre Ticketnummer: #{ticket_id}</b><br><br>"
-                    f"\u201e<i>{description}</i>\u201c<br><br>"
-                    f"Bitte bewahren Sie diese Ticketnummer f\u00fcr R\u00fcckfragen auf. "
-                    f"Unser Team wird sich schnellstm\u00f6glich bei Ihnen melden."
-                )
-                await client.put(
-                    f"{self._base_url()}/tickets/{ticket_id}.json",
-                    json={"ticket": {"comment": {"html_body": public_body, "public": True}}},
-                    auth=self._auth(),
-                )
-            except Exception as e:
-                logger.error(f"Failed to add public comment to #{ticket_id}: {e}")
 
         logger.info(f"Zendesk ticket created: #{ticket_id}")
         return ticket_id
