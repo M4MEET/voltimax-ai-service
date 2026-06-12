@@ -79,6 +79,30 @@ class ZendeskAdapter(BaseTicketAdapter):
                 except Exception as e:
                     logger.error(f"Failed to add internal note to ticket #{ticket_id}: {e}")
 
+            # Add public comment with ticket reference (customer gets this in email)
+            try:
+                ref_name = customer_name or "Kunde"
+                ref_payload = {
+                    "ticket": {
+                        "comment": {
+                            "html_body": (
+                                f"Hallo {ref_name},<br><br>"
+                                f"Ihre Ticketnummer lautet: <b>#{ticket_id}</b><br><br>"
+                                f"Bitte bewahren Sie diese Nummer f\u00fcr R\u00fcckfragen auf. "
+                                f"Unser Team wird sich schnellstm\u00f6glich bei Ihnen melden."
+                            ),
+                            "public": True,
+                        },
+                    }
+                }
+                await client.put(
+                    f"{self._base_url()}/tickets/{ticket_id}.json",
+                    json=ref_payload,
+                    auth=self._auth(),
+                )
+            except Exception as e:
+                logger.error(f"Failed to add ticket reference comment to #{ticket_id}: {e}")
+
         logger.info(f"Zendesk ticket created: #{ticket_id}")
         return ticket_id
 
