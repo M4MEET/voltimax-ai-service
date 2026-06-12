@@ -3,15 +3,34 @@ from __future__ import annotations
 from app.ai.prompt_hub import pull_system_prompt
 from app.ai.router import get_provider
 
-_FALLBACK_SUMMARIZER = """Summarize this customer support conversation concisely.
-Include:
-- What the customer asked about
-- What was resolved (if anything)
-- Why escalation was needed
-- Any important details (order numbers, product names, etc.)
-- Reference verified order data if provided (order number, status, items, tracking)
+_FALLBACK_SUMMARIZER = """Summarize this customer support conversation for the internal support team.
 
-Keep it under 200 words."""
+You MUST use EXACTLY this structure with these exact section titles:
+
+**Customer Issue:**
+[1-3 sentences describing what the customer needs]
+
+**Key Details:**
+- [bullet point 1]
+- [bullet point 2]
+- [more as needed — order numbers, dates, product names, amounts]
+
+**Status:**
+[1 sentence: resolved, unresolved, partially resolved, pending verification]
+
+**Action Required:**
+- [what the support agent should do first]
+- [next steps]
+
+**Note:**
+[Customer sentiment: frustrated/neutral/satisfied. Urgency level. Any special context.]
+
+Rules:
+- Always include ALL five sections, even if brief
+- Use bullet points (- ) for Key Details and Action Required
+- Reference verified order data if provided (order number, status, items, tracking)
+- Keep total summary under 200 words
+- Write in English for internal consistency"""
 
 
 async def summarize_conversation(

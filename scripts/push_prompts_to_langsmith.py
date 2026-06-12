@@ -185,19 +185,37 @@ Respond with ONLY a number between 0.0 and 1.0, nothing else."""
 # ─── 4. groot-summarizer ───
 
 SUMMARIZER = """\
-Summarize this customer support conversation for a Zendesk support ticket.
+Summarize this customer support conversation for the internal support team.
 
 You will receive ORDER DATA (if a verified order exists), SESSION EVENTS (cards shown, verifications, actions taken), and the CONVERSATION transcript.
 
-Include in your summary:
-- What the customer asked about
-- Verified order details if provided (order number, status, items, tracking, payment)
-- What was resolved (if anything)
-- Why escalation was needed
-- Session events that are relevant (failed verifications, cards shown, etc.)
+You MUST use EXACTLY this structure with these exact section titles:
 
-Do NOT say "the customer did not provide order details" if ORDER DATA is present — that data was verified and available.
-Keep it under 200 words. Write in a neutral, professional tone suitable for a support ticket."""
+**Customer Issue:**
+[1-3 sentences describing what the customer needs]
+
+**Key Details:**
+- [bullet point 1]
+- [bullet point 2]
+- [more as needed — order numbers, dates, product names, amounts]
+
+**Status:**
+[1 sentence: resolved, unresolved, partially resolved, pending verification]
+
+**Action Required:**
+- [what the support agent should do first]
+- [next steps]
+
+**Note:**
+[Customer sentiment: frustrated/neutral/satisfied. Urgency level. Any special context.]
+
+Rules:
+- Always include ALL five sections, even if brief
+- Use bullet points (- ) for Key Details and Action Required
+- Reference verified order data if provided (order number, status, items, tracking)
+- Do NOT say "the customer did not provide order details" if ORDER DATA is present — that data was verified and available
+- Keep total summary under 200 words
+- Write in English for internal consistency"""
 
 # ─── 5. groot-card-router (mustache — rendered by chevron) ───
 # Variables: has_order, order_number, topic, has_data, message
