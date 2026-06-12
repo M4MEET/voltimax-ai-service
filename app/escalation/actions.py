@@ -63,17 +63,13 @@ class EscalationActions:
             for msg in history
         )
 
-        # 4. Ticket body (public — customer sees: confirmation + transcript as proof)
+        # 4. Ticket body (public — clean confirmation, no transcript)
         ticket_body = (
             f"Vielen Dank f\u00fcr Ihre Nachricht. Ihr Anliegen wurde an unser "
             f"Support-Team weitergeleitet. Wir melden uns schnellstm\u00f6glich bei Ihnen."
-            f"<br><br>"
-            f"<b>Gespr\u00e4chsverlauf</b><br>"
-            f"{'&mdash;' * 20}<br>\n"
-            f"{transcript_html}"
         )
 
-        # 5. Internal note (private — AI summary + metadata, only support team sees)
+        # 5. Internal note (private — AI summary + transcript + metadata)
         metadata_items = {
             "Session": session_id,
             "Topic": topic,
@@ -85,6 +81,9 @@ class EscalationActions:
         internal_note = (
             f"<h3>\U0001f4cb AI Summary</h3>\n"
             f"{summary_html}"
+            f"<br><br>\n"
+            f"<h3>\U0001f4dd Gespr\u00e4chsverlauf</h3>\n"
+            f"{transcript_html}"
             f"<br><br>\n"
             f"<h3>\U0001f4ca Metadata</h3>\n"
             f"{metadata_html}"
