@@ -56,12 +56,15 @@ class EscalationActions:
             transcript_lines.append(f"{role_label}: {msg['content']}")
         transcript = "\n".join(transcript_lines)
 
-        # 3. Build customer-facing ticket body (public — customer sees this in email)
+        # 3. Build ticket body (public — AI summary + customer confirmation)
+        summary_html = _summary_to_html(summary)
         transcript_html = "<br>\n".join(
             f"<b>{'Kunde' if msg['role'] == 'user' else 'Groot'}</b>: {msg['content']}"
             for msg in history
         )
-        customer_body = (
+        ticket_body = (
+            f"{summary_html}"
+            f"<br><br>"
             f"Vielen Dank f\u00fcr Ihre Nachricht. Ihr Anliegen wurde an unser "
             f"Support-Team weitergeleitet. Wir melden uns schnellstm\u00f6glich bei Ihnen."
             f"<br><br>"
@@ -70,8 +73,7 @@ class EscalationActions:
             f"{transcript_html}"
         )
 
-        # 4. Build internal note (private — only support team sees this)
-        summary_html = _summary_to_html(summary)
+        # 4. Build internal note (private — transcript + metadata, only support team sees)
         metadata_items = {
             "Session": session_id,
             "Topic": topic,
@@ -81,8 +83,8 @@ class EscalationActions:
         }
         metadata_html = "<br>\n".join(f"<b>{k}:</b> {v}" for k, v in metadata_items.items())
         internal_note = (
-            f"<h3>\U0001f4cb AI Summary</h3>\n"
-            f"{summary_html}"
+            f"<h3>\U0001f4dd Transcript</h3>\n"
+            f"{transcript_html}"
             f"<br><br>\n"
             f"<h3>\U0001f4ca Metadata</h3>\n"
             f"{metadata_html}"
@@ -92,7 +94,7 @@ class EscalationActions:
         adapter = self._get_adapter()
         ticket_id = await adapter.create_ticket(
             subject=ticket_subject,
-            description=customer_body,
+            description=ticket_body,
             customer_email=customer_email,
             customer_name=customer_name,
             internal_note=internal_note,
