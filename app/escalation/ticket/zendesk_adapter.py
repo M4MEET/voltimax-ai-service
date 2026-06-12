@@ -31,12 +31,13 @@ class ZendeskAdapter(BaseTicketAdapter):
         metadata: dict | None = None,
         internal_note: str | None = None,
     ) -> str:
+        # Step 1: Create ticket with internal-only first comment (no email to customer)
         payload = {
             "ticket": {
                 "subject": subject,
                 "comment": {
                     "html_body": description,
-                    "public": True,
+                    "public": False,
                 },
                 "requester": {
                     "name": customer_name or "Guest",
@@ -60,48 +61,38 @@ class ZendeskAdapter(BaseTicketAdapter):
             data = response.json()
             ticket_id = str(data["ticket"]["id"])
 
-            # Add internal note with AI summary + metadata (not visible to customer)
+            # Step 2: Add internal note with AI summary + transcript + metadata
             if internal_note:
                 try:
-                    note_payload = {
-                        "ticket": {
-                            "comment": {
-                                "html_body": internal_note,
-                                "public": False,
-                            },
-                        }
-                    }
                     await client.put(
                         f"{self._base_url()}/tickets/{ticket_id}.json",
-                        json=note_payload,
+                        json={"ticket": {"comment": {"html_body": internal_note, "public": False}}},
                         auth=self._auth(),
                     )
                 except Exception as e:
                     logger.error(f"Failed to add internal note to ticket #{ticket_id}: {e}")
 
-            # Add public comment with ticket reference (customer gets this in email)
+            # Step 3: One public comment — customer gets ONE email with ticket number + their issue
             try:
                 ref_name = customer_name or "Kunde"
-                ref_payload = {
-                    "ticket": {
-                        "comment": {
-                            "html_body": (
-                                f"Hallo {ref_name},<br><br>"
-                                f"Ihre Ticketnummer lautet: <b>#{ticket_id}</b><br><br>"
-                                f"Bitte bewahren Sie diese Nummer f\u00fcr R\u00fcckfragen auf. "
-                                f"Unser Team wird sich schnellstm\u00f6glich bei Ihnen melden."
-                            ),
-                            "public": True,
-                        },
-                    }
-                }
+                public_body = (
+                    f"Hallo {ref_name},<br><br>"
+                    f"vielen Dank f\u00fcr Ihre Nachricht. Ihr Anliegen wurde an unser "
+                    f"Support-Team weitergeleitet.<br><br>"
+                    f"<b>Ihre Ticketnummer: #{ticket_id}</b><br><br>"
+                    f"<b>Ihr Anliegen:</b><br>"
+                    f"{description}"
+                    f"<br><br>"
+                    f"Bitte bewahren Sie diese Ticketnummer f\u00fcr R\u00fcckfragen auf. "
+                    f"Unser Team wird sich schnellstm\u00f6glich bei Ihnen melden."
+                )
                 await client.put(
                     f"{self._base_url()}/tickets/{ticket_id}.json",
-                    json=ref_payload,
+                    json={"ticket": {"comment": {"html_body": public_body, "public": True}}},
                     auth=self._auth(),
                 )
             except Exception as e:
-                logger.error(f"Failed to add ticket reference comment to #{ticket_id}: {e}")
+                logger.error(f"Failed to add public comment to #{ticket_id}: {e}")
 
         logger.info(f"Zendesk ticket created: #{ticket_id}")
         return ticket_id
