@@ -29,17 +29,15 @@ class ZendeskAdapter(BaseTicketAdapter):
         customer_email: str,
         customer_name: str,
         metadata: dict | None = None,
+        internal_note: str | None = None,
     ) -> str:
-        full_description = description
-        if metadata:
-            full_description += "\n\n--- Metadata ---\n"
-            for k, v in metadata.items():
-                full_description += f"{k}: {v}\n"
-
         payload = {
             "ticket": {
                 "subject": subject,
-                "description": full_description,
+                "comment": {
+                    "html_body": description,
+                    "public": True,
+                },
                 "requester": {
                     "name": customer_name or "Guest",
                     "email": customer_email or "anonymous@voltimax.de",
@@ -60,9 +58,29 @@ class ZendeskAdapter(BaseTicketAdapter):
                 logger.error(f"Zendesk ticket failed: {response.status_code} — {response.text[:500]}")
             response.raise_for_status()
             data = response.json()
+            ticket_id = str(data["ticket"]["id"])
 
-        logger.info(f"Zendesk ticket created: #{data['ticket']['id']}")
-        return str(data["ticket"]["id"])
+            # Add internal note with AI summary + metadata (not visible to customer)
+            if internal_note:
+                try:
+                    note_payload = {
+                        "ticket": {
+                            "comment": {
+                                "html_body": internal_note,
+                                "public": False,
+                            },
+                        }
+                    }
+                    await client.put(
+                        f"{self._base_url()}/tickets/{ticket_id}.json",
+                        json=note_payload,
+                        auth=self._auth(),
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to add internal note to ticket #{ticket_id}: {e}")
+
+        logger.info(f"Zendesk ticket created: #{ticket_id}")
+        return ticket_id
 
     async def get_ticket(self, ticket_id: str, requester_email: str) -> dict | None:
         """Fetch a ticket by ID. Returns ticket dict if requester email matches, None otherwise."""
