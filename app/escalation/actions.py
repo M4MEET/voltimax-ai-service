@@ -77,6 +77,7 @@ class EscalationActions:
         }
         metadata_html = "<br>\n".join(f"<b>{k}:</b> {v}" for k, v in metadata_items.items())
         internal_note = (
+            f"<p><b>\U0001f916 Groot Bot</b> \u2014 Automatische Zusammenfassung</p>\n"
             f"<h3>\U0001f4cb AI Summary</h3>\n"
             f"{summary_html}"
             f"<br><br>\n"
