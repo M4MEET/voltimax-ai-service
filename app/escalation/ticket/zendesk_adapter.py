@@ -77,12 +77,10 @@ class ZendeskAdapter(BaseTicketAdapter):
                 ref_name = customer_name or "Kunde"
                 public_body = (
                     f"Hallo {ref_name},<br><br>"
-                    f"vielen Dank f\u00fcr Ihre Nachricht. Ihr Anliegen wurde an unser "
+                    f"vielen Dank f\u00fcr Ihre Nachricht. Ihr Anliegen wurde erfolgreich an unser "
                     f"Support-Team weitergeleitet.<br><br>"
                     f"<b>Ihre Ticketnummer: #{ticket_id}</b><br><br>"
-                    f"<b>Ihr Anliegen:</b><br>"
-                    f"{description}"
-                    f"<br><br>"
+                    f"\u201e<i>{description}</i>\u201c<br><br>"
                     f"Bitte bewahren Sie diese Ticketnummer f\u00fcr R\u00fcckfragen auf. "
                     f"Unser Team wird sich schnellstm\u00f6glich bei Ihnen melden."
                 )
