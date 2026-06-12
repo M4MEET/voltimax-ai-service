@@ -63,15 +63,14 @@ class EscalationActions:
             for msg in history
         )
 
-        # 4. Ticket body (public — customer's last message + confirmation)
+        # 4. Ticket body (public — confirmation + customer's issue)
         customer_messages = [msg["content"] for msg in history if msg["role"] == "user"]
         last_customer_msg = customer_messages[-1] if customer_messages else ""
         ticket_body = (
-            f"{last_customer_msg}"
-            f"<br><br>"
-            f"{'&mdash;' * 20}<br>"
-            f"Vielen Dank f\u00fcr Ihre Nachricht. Ihr Anliegen wurde an unser "
+            f"Vielen Dank f\u00fcr Ihre Nachricht, {customer_name or 'Kunde'}. Ihr Anliegen wurde an unser "
             f"Support-Team weitergeleitet. Wir melden uns schnellstm\u00f6glich bei Ihnen."
+            f"<br><br>"
+            f"<b>Anliegen:</b> \u201e{last_customer_msg}\u201c"
         )
 
         # 5. Internal note (private — AI summary + transcript + metadata)
