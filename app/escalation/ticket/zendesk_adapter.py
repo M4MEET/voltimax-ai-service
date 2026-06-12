@@ -31,14 +31,13 @@ class ZendeskAdapter(BaseTicketAdapter):
         metadata: dict | None = None,
         internal_note: str | None = None,
     ) -> str:
-        ref_name = customer_name or "Kunde"
-
-        # Step 1: Create ticket — public comment with customer's message (triggers Zendesk email)
+        # Step 1: Create ticket — public comment with customer name + issue (clean for support)
+        # The Zendesk email trigger template adds the greeting for the customer email
         public_body = (
-            f"Hallo {ref_name},<br><br>"
-            f"vielen Dank f\u00fcr Ihre Nachricht. Ihr Anliegen wurde erfolgreich an unser "
-            f"Support-Team weitergeleitet. Wir melden uns schnellstm\u00f6glich bei Ihnen.<br><br>"
-            f"\u201e<i>{description}</i>\u201c"
+            f"<b>Kunde:</b> {customer_name or 'Unbekannt'}<br>"
+            f"<b>E-Mail:</b> {customer_email or 'Nicht angegeben'}<br><br>"
+            f"<b>Anliegen:</b><br>"
+            f"{description}"
         )
 
         payload = {
