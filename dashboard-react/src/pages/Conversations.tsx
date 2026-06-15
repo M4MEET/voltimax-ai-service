@@ -207,7 +207,7 @@ export default function Conversations() {
     {
       key: 'started',
       header: 'Started',
-      render: (r) => new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      render: (r) => { const d = r.created_at?.endsWith('Z') ? r.created_at : r.created_at + 'Z'; return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); },
     },
     {
       key: 'action',
@@ -451,7 +451,7 @@ export default function Conversations() {
                   >
                     <p className="whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>{msg.content}</p>
                     <p className={clsx('text-[10px] mt-1', msg.role === 'user' ? 'text-indigo-200' : 'text-gray-400')}>
-                      {new Date(msg.created_at).toLocaleTimeString()}
+                      {new Date(msg.created_at?.endsWith('Z') ? msg.created_at : msg.created_at + 'Z').toLocaleTimeString()}
                     </p>
                   </div>
                 </div>
