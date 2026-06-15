@@ -328,6 +328,25 @@ class ConnectionHandler:
                                 card_action = "none"
                         elif card_action.lower() in _recent_card_actions:
                             logger.info(f"Duplicate card suppressed: {card_action} was shown recently → routing to AI")
+                            # Inject card data as context so AI can answer follow-up questions
+                            _suppressed_action = card_action
+                            _cached = (session_data or {}).get("cached_order_data", {})
+                            if _cached and _suppressed_action in ("tracking", "payment", "invoice", "warranty"):
+                                _order_num = (session_data or {}).get("order_number", "?")
+                                _ctx_parts = [f"The customer already saw the {_suppressed_action} card for order #{_order_num}. Answer their follow-up question using this data:"]
+                                _ctx_parts.append(f"Status: {_cached.get('statusLabel', _cached.get('status', '?'))}")
+                                _ctx_parts.append(f"Payment: {_cached.get('paymentStatus', '?')}")
+                                _ctx_parts.append(f"Total: {_cached.get('amountTotal', _cached.get('totalAmount', '?'))} EUR")
+                                for d in _cached.get("deliveries", []):
+                                    _ctx_parts.append(f"Delivery: {d.get('deliveryStatus', '?')} via {d.get('shippingMethod', '?')}")
+                                    if d.get("shippingDate"):
+                                        _ctx_parts.append(f"Expected ship date: {d['shippingDate']}")
+                                    if d.get("trackingCodes"):
+                                        _ctx_parts.append(f"Tracking: {', '.join(d['trackingCodes'])}")
+                                for item in _cached.get("lineItems", [])[:5]:
+                                    _ctx_parts.append(f"Item: {item.get('label', '?')} x{item.get('quantity', 1)} - {item.get('totalPrice', '?')} EUR")
+                                classification["card_context"] = "\n".join(_ctx_parts)
+                                logger.info(f"Injected card context for suppressed {_suppressed_action} card")
                             card_action = "none"
 
                     # ── Smart model routing: Haiku for simple, Sonnet for complex ──
