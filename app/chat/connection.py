@@ -331,9 +331,11 @@ class ConnectionHandler:
                             # Inject card data as context so AI can answer follow-up questions
                             _suppressed_action = card_action
                             _cached = (session_data or {}).get("cached_order_data", {})
+                            # Inject relevant data so AI can answer follow-ups about the card
+                            _ctx_parts = []
                             if _cached and _suppressed_action in ("tracking", "payment", "invoice", "warranty"):
                                 _order_num = (session_data or {}).get("order_number", "?")
-                                _ctx_parts = [f"The customer already saw the {_suppressed_action} card for order #{_order_num}. Answer their follow-up question using this data:"]
+                                _ctx_parts.append(f"The customer already saw the {_suppressed_action} card for order #{_order_num}. Answer their follow-up question using this data:")
                                 _ctx_parts.append(f"Status: {_cached.get('statusLabel', _cached.get('status', '?'))}")
                                 _ctx_parts.append(f"Payment: {_cached.get('paymentStatus', '?')}")
                                 _ctx_parts.append(f"Total: {_cached.get('amountTotal', _cached.get('totalAmount', '?'))} EUR")
@@ -345,6 +347,24 @@ class ConnectionHandler:
                                         _ctx_parts.append(f"Tracking: {', '.join(d['trackingCodes'])}")
                                 for item in _cached.get("lineItems", [])[:5]:
                                     _ctx_parts.append(f"Item: {item.get('label', '?')} x{item.get('quantity', 1)} - {item.get('totalPrice', '?')} EUR")
+                            elif _suppressed_action == "compatibility_check":
+                                # Inject last compatibility results from session events
+                                for ev in reversed((session_data or {}).get("events", [])):
+                                    if ev.get("type") == "compatibility_result":
+                                        _ctx_parts.append(f"The customer already saw compatibility results. Answer their follow-up using this data:")
+                                        _ctx_parts.append(ev.get("detail", ""))
+                                        break
+                                if not _ctx_parts:
+                                    _ctx_parts.append("The customer already saw a vehicle compatibility check card. Answer their follow-up about the results.")
+                            elif _suppressed_action == "ticket_lookup":
+                                for ev in reversed((session_data or {}).get("events", [])):
+                                    if ev.get("type") == "ticket_status_shown":
+                                        _ctx_parts.append(f"The customer already saw their ticket status. Details:")
+                                        _ctx_parts.append(ev.get("detail", ""))
+                                        break
+                                if not _ctx_parts:
+                                    _ctx_parts.append("The customer already saw their ticket status card. Answer their follow-up question.")
+                            if _ctx_parts:
                                 classification["card_context"] = "\n".join(_ctx_parts)
                                 logger.info(f"Injected card context for suppressed {_suppressed_action} card")
                             card_action = "none"
