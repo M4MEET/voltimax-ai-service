@@ -1459,6 +1459,12 @@ class ConnectionHandler:
         except WebSocketDisconnect:
             logger.info(f"WebSocket disconnected: session={session_id}")
             _close_reason = "disconnected"
+            # Don't close session immediately — customer might be navigating pages
+            # The session will be reused if they reconnect within 10 minutes
+            # Only mark as closed if they had 0 messages (abandoned session)
+            _sess_check = await self.chat_manager.get_session(session_id) if session_id else None
+            if _sess_check and _sess_check.get("message_count", 0) > 0:
+                _close_reason = None  # Keep session open for reconnection
         except Exception as e:
             logger.exception(f"WebSocket error: {e}")
             _close_reason = "error"
@@ -1479,8 +1485,9 @@ class ConnectionHandler:
                 except Exception:
                     pass
                 self.active_connections.pop(session_id, None)
-                # Only close if not already closed (idle timeout closes before reaching here)
-                if _sess and _sess.get("status") != "closed":
+                # Only close if not already closed and close_reason is set
+                # _close_reason=None means keep session open for reconnection
+                if _close_reason and _sess and _sess.get("status") != "closed":
                     await self.chat_manager.close_session(session_id, close_reason=_close_reason)
 
     async def _send_ws(self, websocket: WebSocket, msg: OutgoingMessage) -> None:

@@ -60,13 +60,24 @@ class ChatManager:
         return session
 
     async def find_active_session_by_chat_id(self, chat_id: str) -> dict | None:
-        """Find an existing session with this chat_id that isn't closed."""
+        """Find an existing session with this chat_id — active or recently disconnected."""
         if not chat_id:
             return None
-        return await sessions_collection().find_one(
+        # First try: active session
+        session = await sessions_collection().find_one(
             {"chat_id": chat_id, "status": {"$ne": "closed"}},
             {"_id": 0},
             sort=[("created_at", -1)],
+        )
+        if session:
+            return session
+        # Second try: recently closed session (within 10 minutes — page navigation reconnect)
+        from datetime import datetime, timedelta, timezone
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
+        return await sessions_collection().find_one(
+            {"chat_id": chat_id, "status": "closed", "updated_at": {"$gte": cutoff}},
+            {"_id": 0},
+            sort=[("updated_at", -1)],
         )
 
     async def reactivate_session(self, session_id: str) -> None:
