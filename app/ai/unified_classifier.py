@@ -44,7 +44,7 @@ If customer HAS a verified order ({{has_order}}):
 ALWAYS available (with or without verified order):
   "escalation_ticket" — wants human agent, contact support, support kontaktieren, create ticket
   "ticket_lookup" — customer explicitly asks to CHECK the status of an existing support ticket (e.g. "what's the status of my ticket?", "any update on ticket 12345?"). Do NOT use when customer merely MENTIONS a ticket number as context for an order question (e.g. "this order was created because of ticket 18465" → this is about the order, use "none")
-  "compatibility_check" — ONLY when customer mentions a specific vehicle (car make/model/year, motorcycle). Must mention a vehicle — "BMW", "Audi A4", "Golf 7", etc. NEVER use this for product name searches like "Varta H3" or "search for battery" — those are product_query with action "none"
+  "compatibility_check" — when customer mentions a specific vehicle (car make/model/year, motorcycle make/model) and wants a battery for it. Examples: "BMW 3er", "Audi A4 2020", "Golf 7", "Harley Davidson Breakout", "Honda CBR 600", "Ducati Monster", "Breakout 2018". Includes cars, motorcycles, trucks, boats. NEVER use for product name searches like "Varta H3" or "search for battery" — those are product_query with action "none". When in doubt if a name is a vehicle model, prefer compatibility_check over product_query.
   "batteriepfand" — asking about Batteriepfand, battery deposit return, Pfandrückgabe, Altbatterie zurückgeben, wants to submit Batteriepfand forms
   "account_info" — asking about their OWN account, profile, login, password reset, address management, personal data, Kundenkonto, "Mein Konto". Do NOT use for "Kundendienst" (customer service), company contact info, store location, opening hours — those are general questions (action="none", intent=rag_query)
 
@@ -85,6 +85,8 @@ RULES:
   - "ticket_lookup" ONLY when customer explicitly asks to CHECK ticket status. Mentioning a ticket number as context for an order question is NOT a ticket lookup — use "none" to let AI respond
   - If the SAME card type was already shown in recent conversation and customer asks a follow-up question about the data (e.g. "why is the date so late?" after seeing tracking card), use "none" — let AI explain instead of re-showing the same card
   - When unsure between two specific actions, prefer the more specific action over clarify
+  - NEVER use "clarify" more than once in a row — if the previous message was already a clarification response, use "none" and let the AI respond with the best guess. Repeated clarify loops frustrate customers.
+  - When a customer mentions a vehicle/model name + "Batterie", always use "compatibility_check" — even for motorcycles, boats, or unusual model names
 
 COMPLEXITY (pick one):
   "simple" — greetings, thanks, yes/no answers, single straightforward question
