@@ -84,6 +84,15 @@ async def product_recommendations(days: int = Query(30, ge=1, le=365)) -> dict:
     return await aggregator.get_product_recommendations(days)
 
 
+@router.get("/rag-gaps")
+async def rag_gaps(
+    days: int = Query(30, ge=1, le=365),
+    limit: int = Query(50, ge=1, le=200),
+) -> dict:
+    """Knowledge-base gaps — FAQ questions Groot couldn't answer well."""
+    return await aggregator.get_rag_gaps(days, limit)
+
+
 @router.get("/timeseries")
 async def timeseries(
     metric: str = Query(..., description="chats|escalations|tickets|tokens|resolution|response_time"),

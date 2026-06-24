@@ -39,3 +39,8 @@ def consent_log_collection():
 
 def conversions_collection():
     return get_db()["conversions"]
+
+
+def rag_gaps_collection():
+    """Knowledge-base gaps: questions where RAG returned nothing or a weak match."""
+    return get_db()["rag_gaps"]

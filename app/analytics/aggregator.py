@@ -6,6 +6,7 @@ from app.db.collections import (
     analytics_events_collection,
     conversions_collection,
     messages_collection,
+    rag_gaps_collection,
     sessions_collection,
 )
 
@@ -105,6 +106,42 @@ class AnalyticsAggregator:
             "close_reasons": close_reasons,
             "semantic_cache": cache_stats,
             "trends": trends,
+        }
+
+    async def get_rag_gaps(self, days: int = 30, limit: int = 50) -> dict:
+        """Knowledge-base gaps — FAQ/policy questions Groot answered weakly or not at all.
+
+        Groups identical questions so frequently-asked unanswered ones rank first.
+        Each group is directly actionable: add a Q&A pair or KB content for it.
+        """
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+        pipeline = [
+            {"$match": {"created_at": {"$gte": since}}},
+            {"$group": {
+                "_id": {"$toLower": {"$trim": {"input": "$query"}}},
+                "query": {"$first": "$query"},
+                "count": {"$sum": 1},
+                "min_score": {"$min": "$top_score"},
+                "last_asked": {"$max": "$created_at"},
+            }},
+            {"$sort": {"count": -1, "last_asked": -1}},
+            {"$limit": limit},
+        ]
+        groups = await rag_gaps_collection().aggregate(pipeline).to_list(limit)
+        total = await rag_gaps_collection().count_documents({"created_at": {"$gte": since}})
+        return {
+            "total_gaps": total,
+            "unique_questions": len(groups),
+            "gaps": [
+                {
+                    "query": g.get("query", ""),
+                    "count": g.get("count", 0),
+                    "min_score": round(g.get("min_score") or 0.0, 3),
+                    "last_asked": g.get("last_asked").isoformat() if g.get("last_asked") else "",
+                }
+                for g in groups
+            ],
+            "period_days": days,
         }
 
     async def get_topic_breakdown(self, days: int = 7) -> list[dict]:

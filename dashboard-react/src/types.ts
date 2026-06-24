@@ -186,3 +186,17 @@ export interface QaPair {
   question: string;
   answer: string;
 }
+
+export interface RagGap {
+  query: string;
+  count: number;
+  min_score: number;
+  last_asked: string;
+}
+
+export interface RagGapsData {
+  total_gaps: number;
+  unique_questions: number;
+  gaps: RagGap[];
+  period_days: number;
+}

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
-import { Database, Upload, RefreshCw, Trash2, AlertCircle, Check, Plus, Brain } from 'lucide-react';
+import { Database, Upload, RefreshCw, Trash2, AlertCircle, Check, Plus, Brain, SearchX, ArrowDown } from 'lucide-react';
 import { apiFetch, adminFetch } from '../api';
-import type { KnowledgeStatus, KnowledgeSource, QaPair } from '../types';
+import type { KnowledgeStatus, KnowledgeSource, QaPair, RagGapsData } from '../types';
 import KpiCard from '../components/KpiCard';
 import DataTable from '../components/DataTable';
 import type { Column } from '../components/DataTable';
@@ -27,6 +27,10 @@ export default function Knowledge() {
   const [qaMessage, setQaMessage] = useState('');
   const [qaError, setQaError] = useState('');
 
+  // Knowledge gaps (questions Groot couldn't answer well)
+  const [gaps, setGaps] = useState<RagGapsData | null>(null);
+  const qaQuestionRef = useRef<HTMLInputElement>(null);
+
   function fetchStatus() {
     setLoading(true);
     setError('');
@@ -45,10 +49,24 @@ export default function Knowledge() {
       .finally(() => setQaLoading(false));
   }
 
+  function fetchGaps() {
+    apiFetch<RagGapsData>('/api/analytics/rag-gaps?days=30&limit=20')
+      .then(setGaps)
+      .catch(() => {/* non-critical */});
+  }
+
   useEffect(() => {
     fetchStatus();
     fetchQaPairs();
+    fetchGaps();
   }, []);
+
+  // Click a gap → pre-fill the Q&A question field below and scroll to it
+  function answerGap(query: string) {
+    setQaQuestion(query);
+    qaQuestionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    qaQuestionRef.current?.focus();
+  }
 
   async function handleSync() {
     setSyncing(true);
@@ -323,6 +341,43 @@ export default function Knowledge() {
         />
       </div>
 
+      {/* Knowledge Gaps — questions Groot answered weakly or not at all */}
+      {gaps && gaps.gaps.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden animate-card-pop stagger-4">
+          <div className="p-6 pb-2">
+            <div className="flex items-center gap-3 mb-1">
+              <SearchX size={18} className="text-amber-500" />
+              <h2 className="text-sm font-semibold text-gray-900">Knowledge Gaps</h2>
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-600">
+                {gaps.unique_questions}
+              </span>
+            </div>
+            <p className="text-xs text-gray-400 mb-4">
+              FAQ questions from the last {gaps.period_days} days where Groot found no good answer.
+              Click one to turn it into a Q&amp;A pair below.
+            </p>
+            <ul className="divide-y divide-gray-50">
+              {gaps.gaps.map((g) => (
+                <li key={g.query} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-gray-800 truncate" title={g.query}>{g.query}</p>
+                    <p className="text-[11px] text-gray-400">
+                      asked {g.count}× &middot; best match {Math.round(g.min_score * 100)}%
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => answerGap(g.query)}
+                    className="flex items-center gap-1 flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                  >
+                    <ArrowDown size={12} /> Answer
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Q&A Pairs section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-card-pop stagger-5">
         <div className="p-6 pb-0">
@@ -344,6 +399,7 @@ export default function Knowledge() {
             <div className="flex-1">
               <label className="block text-xs font-medium text-gray-500 mb-1">Question</label>
               <input
+                ref={qaQuestionRef}
                 type="text"
                 value={qaQuestion}
                 onChange={(e) => setQaQuestion(e.target.value)}
