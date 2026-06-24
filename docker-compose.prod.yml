@@ -12,8 +12,9 @@ services:
       - ./static/forms:/app/static/forms
     # Reach the on-host mail server via the host gateway instead of the
     # public IP (containers can't hairpin to the host's own public address).
+    # SMTP_HOST is set in .env (gitignored) so the real hostname isn't committed.
     extra_hosts:
-      - "mail.voltimax.de:host-gateway"
+      - "${SMTP_HOST:-mail.invalid}:host-gateway"
     depends_on:
       mongo:
         condition: service_healthy
