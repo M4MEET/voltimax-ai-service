@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from datetime import datetime
 
 from app.db.collections import qa_pairs_collection
@@ -23,20 +24,50 @@ async def add_qa_pair(question: str, answer: str) -> str:
     return str(result.inserted_id)
 
 
-async def import_csv(content: str) -> int:
+async def upsert_qa_pair(question: str, answer: str) -> str:
+    """Insert a Q&A pair, or update the answer if the question already exists.
+
+    Matching is case-insensitive on the trimmed question, so re-importing an
+    edited CSV updates answers in place instead of creating duplicates.
+    Returns "added" or "updated". Updating skips re-embedding (question is
+    unchanged) — saves an embedding API call.
+    """
+    question = question.strip()
+    answer = answer.strip()
+    coll = qa_pairs_collection()
+    existing = await coll.find_one(
+        {"question": {"$regex": f"^{re.escape(question)}$", "$options": "i"}}
+    )
+    if existing:
+        await coll.update_one(
+            {"_id": existing["_id"]},
+            {"$set": {"answer": answer, "updated_at": datetime.utcnow()}},
+        )
+        return "updated"
+    await add_qa_pair(question, answer)
+    return "added"
+
+
+async def import_csv(content: str) -> dict:
     """Import Q&A pairs from CSV content (columns: question, answer).
-    Returns count of imported pairs."""
+
+    Upserts by question so re-importing won't create duplicates.
+    Returns {"added": int, "updated": int}.
+    """
     reader = csv.DictReader(io.StringIO(content))
-    count = 0
+    added = 0
+    updated = 0
 
     for row in reader:
         question = row.get("question", "").strip()
         answer = row.get("answer", "").strip()
         if question and answer:
-            await add_qa_pair(question, answer)
-            count += 1
+            if await upsert_qa_pair(question, answer) == "added":
+                added += 1
+            else:
+                updated += 1
 
-    return count
+    return {"added": added, "updated": updated}
 
 
 async def get_all_qa_pairs() -> list[dict]:

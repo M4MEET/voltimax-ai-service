@@ -12,10 +12,10 @@ from app.api.deps import verify_dashboard_auth
 from app.config import get_config
 from app.knowledge.manager import KnowledgeManager
 from app.knowledge.sources.qa_loader import (
-    add_qa_pair,
     delete_qa_pair,
     get_all_qa_pairs,
     import_csv,
+    upsert_qa_pair,
 )
 
 router = APIRouter(
@@ -71,9 +71,9 @@ async def add_url(url: str = Form(...)) -> dict:
 
 @router.post("/add-qa")
 async def add_qa(question: str = Form(...), answer: str = Form(...)) -> dict:
-    """Add a single Q&A pair to the knowledge base."""
-    pair_id = await add_qa_pair(question, answer)
-    return {"id": pair_id, "question": question, "answer": answer}
+    """Add a Q&A pair, or update the answer if the question already exists."""
+    status = await upsert_qa_pair(question, answer)
+    return {"status": status, "question": question.strip(), "answer": answer.strip()}
 
 
 @router.post("/import-qa-csv")
@@ -86,8 +86,8 @@ async def import_qa_csv(file: UploadFile = File(...)) -> dict:
     """
     raw = await file.read()
     content = raw.decode("utf-8-sig")
-    count = await import_csv(content)
-    return {"imported": count}
+    result = await import_csv(content)
+    return {"imported": result["added"], "updated": result["updated"]}
 
 
 @router.get("/qa-pairs")

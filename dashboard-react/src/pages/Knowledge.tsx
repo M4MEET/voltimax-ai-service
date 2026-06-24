@@ -42,11 +42,14 @@ export default function Knowledge() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await apiFetch<{ imported: number }>('/api/knowledge/import-qa-csv', {
+      const res = await apiFetch<{ imported: number; updated: number }>('/api/knowledge/import-qa-csv', {
         method: 'POST',
         body: formData,
       });
-      setQaMessage(`Imported ${res.imported} Q&A pair${res.imported === 1 ? '' : 's'}`);
+      const parts = [];
+      if (res.imported) parts.push(`${res.imported} added`);
+      if (res.updated) parts.push(`${res.updated} updated`);
+      setQaMessage(parts.length ? `Import complete: ${parts.join(', ')}` : 'No valid rows found in CSV');
       fetchQaPairs();
     } catch (err) {
       setQaError(err instanceof Error ? err.message : 'Import failed');
