@@ -219,11 +219,14 @@ def _send_email(smtp_config, to_email: str, subject: str, html_body: str, text_b
         msg.attach(MIMEText(text_body, "plain"))
         msg.attach(MIMEText(html_body, "html"))
 
-        if smtp_config.use_tls:
-            server = smtplib.SMTP(smtp_config.host, smtp_config.port)
+        # Port 465 = implicit SSL (SMTP_SSL). Port 587 = STARTTLS. Else plain.
+        if int(smtp_config.port) == 465:
+            server = smtplib.SMTP_SSL(smtp_config.host, smtp_config.port, timeout=20)
+        elif smtp_config.use_tls:
+            server = smtplib.SMTP(smtp_config.host, smtp_config.port, timeout=20)
             server.starttls()
         else:
-            server = smtplib.SMTP(smtp_config.host, smtp_config.port)
+            server = smtplib.SMTP(smtp_config.host, smtp_config.port, timeout=20)
 
         if smtp_config.username and smtp_config.password:
             server.login(smtp_config.username, smtp_config.password)
