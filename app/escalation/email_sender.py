@@ -1,14 +1,37 @@
 """Send escalation notification emails via SMTP."""
 from __future__ import annotations
 
+import contextlib
 import logging
 import smtplib
+import socket
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from app.config import get_config
 
 logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def _force_ipv4():
+    """Force DNS resolution to IPv4 for the duration.
+
+    The mail host has an AAAA record but containers here have no working
+    IPv6 route, so smtplib's default IPv6-first resolution fails. Restricting
+    getaddrinfo to AF_INET makes smtplib connect over IPv4 (which works),
+    while still passing the hostname for TLS cert verification.
+    """
+    _orig = socket.getaddrinfo
+
+    def _ipv4_only(host, port, family=0, type=0, proto=0, flags=0):
+        return _orig(host, port, socket.AF_INET, type, proto, flags)
+
+    socket.getaddrinfo = _ipv4_only
+    try:
+        yield
+    finally:
+        socket.getaddrinfo = _orig
 
 
 async def send_escalation_email_to_customer(
@@ -219,20 +242,22 @@ def _send_email(smtp_config, to_email: str, subject: str, html_body: str, text_b
         msg.attach(MIMEText(text_body, "plain"))
         msg.attach(MIMEText(html_body, "html"))
 
-        # Port 465 = implicit SSL (SMTP_SSL). Port 587 = STARTTLS. Else plain.
-        if int(smtp_config.port) == 465:
-            server = smtplib.SMTP_SSL(smtp_config.host, smtp_config.port, timeout=20)
-        elif smtp_config.use_tls:
-            server = smtplib.SMTP(smtp_config.host, smtp_config.port, timeout=20)
-            server.starttls()
-        else:
-            server = smtplib.SMTP(smtp_config.host, smtp_config.port, timeout=20)
+        # Force IPv4 — the mail host's IPv6 isn't routable from the container.
+        with _force_ipv4():
+            # Port 465 = implicit SSL (SMTP_SSL). Port 587 = STARTTLS. Else plain.
+            if int(smtp_config.port) == 465:
+                server = smtplib.SMTP_SSL(smtp_config.host, smtp_config.port, timeout=20)
+            elif smtp_config.use_tls:
+                server = smtplib.SMTP(smtp_config.host, smtp_config.port, timeout=20)
+                server.starttls()
+            else:
+                server = smtplib.SMTP(smtp_config.host, smtp_config.port, timeout=20)
 
-        if smtp_config.username and smtp_config.password:
-            server.login(smtp_config.username, smtp_config.password)
+            if smtp_config.username and smtp_config.password:
+                server.login(smtp_config.username, smtp_config.password)
 
-        server.sendmail(smtp_config.from_email, to_email, msg.as_string())
-        server.quit()
+            server.sendmail(smtp_config.from_email, to_email, msg.as_string())
+            server.quit()
         logger.info(f"Escalation email sent to {to_email}: {subject}")
         return True
     except Exception as e:
