@@ -46,6 +46,9 @@ services:
       - VOLTIMAX_API_KEY=${VOLTIMAX_DASHBOARD_KEY:-changeme}
       - GENERIC_TIMEZONE=Europe/Berlin
       - N8N_DIAGNOSTICS_ENABLED=false
+      # Allow workflow nodes to read $env (VOLTIMAX_AI_URL / VOLTIMAX_API_KEY)
+      # so secrets stay out of committed workflow JSON.
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
       - N8N_PATH=/n8n/
       - N8N_EDITOR_BASE_URL=https://chat.voltimax.de/n8n/
       - WEBHOOK_URL=https://chat.voltimax.de/n8n/

@@ -1,0 +1,39 @@
+{
+  "name": "VoltimaxChat — Monitoring (errors + health)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "minutes", "minutesInterval": 15 }] }
+      },
+      "name": "Every 15 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.VOLTIMAX_AI_URL}}/api/admin/check-alerts?minutes=15",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Dashboard-Key", "value": "={{$env.VOLTIMAX_API_KEY}}" }
+          ]
+        },
+        "options": { "timeout": 20000 }
+      },
+      "name": "Check Errors + Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [520, 300]
+    }
+  ],
+  "connections": {
+    "Every 15 min": {
+      "main": [[{ "node": "Check Errors + Health", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "voltimax-chat" }]
+}

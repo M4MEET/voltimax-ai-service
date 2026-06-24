@@ -313,6 +313,17 @@ async def report_preview(days: int = Query(7, ge=1, le=90)) -> Response:
     return Response(content=html, media_type="text/html")
 
 
+@router.post("/check-alerts")
+async def check_alerts(minutes: int = Query(15, ge=1, le=1440)) -> dict:
+    """Check recent API errors + DB health; email separate alerts if found.
+
+    Schedule via n8n (e.g. every 15 min). Each alert type has a 60-minute
+    cooldown so a persistent problem doesn't spam the inbox.
+    """
+    from app.analytics.alerts import check_and_alert
+    return await check_and_alert(error_minutes=minutes)
+
+
 # ---------------------------------------------------------------------------
 # Active WebSocket connections
 # ---------------------------------------------------------------------------
