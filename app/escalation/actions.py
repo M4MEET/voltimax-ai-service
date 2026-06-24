@@ -94,37 +94,10 @@ class EscalationActions:
         # 4. Mark session as escalated
         await self.chat_manager.escalate_session(session_id, "ticket_created")
 
-        # 5. Send emails (non-blocking — don't fail the ticket on email errors)
-        try:
-            from app.escalation.email_sender import (
-                send_escalation_email_to_support,
-                send_escalation_email_to_customer,
-            )
-
-            # Email to support team
-            await send_escalation_email_to_support(
-                customer_email=customer_email,
-                customer_name=customer_name,
-                session_id=session_id,
-                ticket_id=ticket_id,
-                topic=topic,
-                escalation_reason=escalation_reason,
-                summary=summary,
-                transcript=transcript,
-            )
-
-            # Confirmation email to customer
-            if customer_email:
-                await send_escalation_email_to_customer(
-                    customer_email=customer_email,
-                    customer_name=customer_name,
-                    session_id=session_id,
-                    ticket_id=ticket_id,
-                    topic=topic,
-                    summary=summary,
-                )
-        except Exception as e:
-            logger.error(f"Email notification failed (ticket still created): {e}")
+        # Note: no confirmation/notification emails are sent here. Zendesk already
+        # emails the customer on ticket creation, and the ticket is visible to the
+        # support team in Zendesk — sending our own SMTP copies was redundant and
+        # failed on external relay (530). Ticket creation above is the source of truth.
 
         return {
             "ticket_id": ticket_id,
