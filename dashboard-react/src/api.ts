@@ -41,3 +41,18 @@ export async function adminFetch<T = unknown>(method: string, path: string, body
     body: body ? JSON.stringify(body) : undefined,
   });
 }
+
+/** Download a file from an authenticated endpoint (sends the dashboard key, then saves the blob). */
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const res = await fetch(path, { headers: { 'X-Dashboard-Key': getApiKey() } });
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

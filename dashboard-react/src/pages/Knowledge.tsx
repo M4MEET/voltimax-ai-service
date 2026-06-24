@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { Database, Upload, RefreshCw, Trash2, AlertCircle, Check, Plus, Brain, SearchX, ArrowDown } from 'lucide-react';
-import { apiFetch, adminFetch } from '../api';
+import { Database, Upload, RefreshCw, Trash2, AlertCircle, Check, Plus, Brain, SearchX, ArrowDown, Download, FileUp } from 'lucide-react';
+import { apiFetch, adminFetch, downloadFile } from '../api';
 import type { KnowledgeStatus, KnowledgeSource, QaPair, RagGapsData } from '../types';
 import KpiCard from '../components/KpiCard';
 import DataTable from '../components/DataTable';
@@ -30,6 +30,31 @@ export default function Knowledge() {
   // Knowledge gaps (questions Groot couldn't answer well)
   const [gaps, setGaps] = useState<RagGapsData | null>(null);
   const qaQuestionRef = useRef<HTMLInputElement>(null);
+  const qaCsvRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+
+  async function handleImportQaCsv(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setQaMessage('');
+    setQaError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await apiFetch<{ imported: number }>('/api/knowledge/import-qa-csv', {
+        method: 'POST',
+        body: formData,
+      });
+      setQaMessage(`Imported ${res.imported} Q&A pair${res.imported === 1 ? '' : 's'}`);
+      fetchQaPairs();
+    } catch (err) {
+      setQaError(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setImporting(false);
+      if (qaCsvRef.current) qaCsvRef.current.value = '';
+    }
+  }
 
   function fetchStatus() {
     setLoading(true);
@@ -351,10 +376,17 @@ export default function Knowledge() {
               <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-600">
                 {gaps.unique_questions}
               </span>
+              <button
+                onClick={() => downloadFile('/api/analytics/rag-gaps/export-csv?days=30&limit=200', 'knowledge_gaps.csv')}
+                className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors"
+                title="Download these questions as a CSV with a blank answer column"
+              >
+                <Download size={13} /> Export CSV
+              </button>
             </div>
             <p className="text-xs text-gray-400 mb-4">
               FAQ questions from the last {gaps.period_days} days where Groot found no good answer.
-              Click one to turn it into a Q&amp;A pair below.
+              Click one to turn it into a Q&amp;A pair below, or export them all, answer offline, and re-import.
             </p>
             <ul className="divide-y divide-gray-50">
               {gaps.gaps.map((g) => (
@@ -386,6 +418,31 @@ export default function Knowledge() {
             <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-600">
               {qaPairs.length}
             </span>
+            <div className="ml-auto flex items-center gap-2">
+              <input
+                ref={qaCsvRef}
+                type="file"
+                accept=".csv"
+                onChange={handleImportQaCsv}
+                className="hidden"
+              />
+              <button
+                onClick={() => qaCsvRef.current?.click()}
+                disabled={importing}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                title="Import Q&A pairs from a CSV (columns: question, answer)"
+              >
+                <FileUp size={13} /> {importing ? 'Importing…' : 'Import CSV'}
+              </button>
+              <button
+                onClick={() => downloadFile('/api/knowledge/export-qa-csv', 'qa_pairs.csv')}
+                disabled={qaPairs.length === 0}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                title="Download all Q&A pairs as CSV"
+              >
+                <Download size={13} /> Export CSV
+              </button>
+            </div>
           </div>
 
           {qaMessage && (

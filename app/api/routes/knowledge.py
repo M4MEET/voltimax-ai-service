@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import csv
+import io
 import os
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 
 from app.api.deps import verify_dashboard_auth
 from app.config import get_config
@@ -75,9 +78,14 @@ async def add_qa(question: str = Form(...), answer: str = Form(...)) -> dict:
 
 @router.post("/import-qa-csv")
 async def import_qa_csv(file: UploadFile = File(...)) -> dict:
-    """Import Q&A pairs from a CSV file (columns: question, answer)."""
+    """Import Q&A pairs from a CSV file (columns: question, answer).
+
+    Decodes with utf-8-sig so a leading BOM (added by Excel or our own
+    export for umlaut rendering) is stripped and doesn't corrupt the
+    first column header.
+    """
     raw = await file.read()
-    content = raw.decode("utf-8")
+    content = raw.decode("utf-8-sig")
     count = await import_csv(content)
     return {"imported": count}
 
@@ -86,6 +94,23 @@ async def import_qa_csv(file: UploadFile = File(...)) -> dict:
 async def list_qa_pairs() -> list[dict]:
     """List all Q&A pairs."""
     return await get_all_qa_pairs()
+
+
+@router.get("/export-qa-csv")
+async def export_qa_csv() -> Response:
+    """Download all Q&A pairs as a CSV (columns: question, answer)."""
+    pairs = await get_all_qa_pairs()
+    buf = io.StringIO()
+    buf.write("﻿")  # UTF-8 BOM so Excel renders umlauts correctly
+    writer = csv.writer(buf)
+    writer.writerow(["question", "answer"])
+    for p in pairs:
+        writer.writerow([p.get("question", ""), p.get("answer", "")])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=qa_pairs.csv"},
+    )
 
 
 @router.delete("/qa/{pair_id}")

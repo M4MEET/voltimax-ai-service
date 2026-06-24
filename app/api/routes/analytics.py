@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import csv
+import io
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 
 from app.api.deps import verify_dashboard_auth
 from app.analytics.aggregator import AnalyticsAggregator
@@ -91,6 +94,30 @@ async def rag_gaps(
 ) -> dict:
     """Knowledge-base gaps — FAQ questions Groot couldn't answer well."""
     return await aggregator.get_rag_gaps(days, limit)
+
+
+@router.get("/rag-gaps/export-csv")
+async def rag_gaps_export_csv(
+    days: int = Query(30, ge=1, le=365),
+    limit: int = Query(200, ge=1, le=1000),
+) -> Response:
+    """Download knowledge gaps as a Q&A-ready CSV (question filled, answer blank).
+
+    Fill the answer column offline, then re-import via Import Q&A CSV to
+    answer many questions at once.
+    """
+    data = await aggregator.get_rag_gaps(days, limit)
+    buf = io.StringIO()
+    buf.write("﻿")  # UTF-8 BOM for Excel
+    writer = csv.writer(buf)
+    writer.writerow(["question", "answer", "asked_count"])
+    for g in data.get("gaps", []):
+        writer.writerow([g.get("query", ""), "", g.get("count", 0)])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=knowledge_gaps.csv"},
+    )
 
 
 @router.get("/timeseries")
