@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import contextlib
+import email.utils
 import logging
 import smtplib
 import socket
@@ -238,6 +239,12 @@ def _send_email(smtp_config, to_email: str, subject: str, html_body: str, text_b
         msg["From"] = f"{smtp_config.from_name} <{smtp_config.from_email}>"
         msg["To"] = to_email
         msg["Subject"] = subject
+        # Date + Message-ID are required by RFC 5322; their absence is a strong
+        # spam signal that pushes mail into Junk. Derive the Message-ID domain
+        # from the sender address so it aligns with the From domain.
+        _domain = smtp_config.from_email.split("@")[-1] if "@" in smtp_config.from_email else None
+        msg["Date"] = email.utils.formatdate(localtime=True)
+        msg["Message-ID"] = email.utils.make_msgid(domain=_domain)
 
         msg.attach(MIMEText(text_body, "plain"))
         msg.attach(MIMEText(html_body, "html"))
