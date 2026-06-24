@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import csv
+import io
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.api.deps import verify_dashboard_auth
@@ -288,6 +291,29 @@ async def get_prompts() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Weekly analytics report
+# ---------------------------------------------------------------------------
+
+
+@router.post("/send-report")
+async def send_report(
+    days: int = Query(7, ge=1, le=90),
+    to: str | None = Query(None, description="Override recipient (defaults to support_email)"),
+) -> dict:
+    """Build and email the analytics summary. Schedule weekly via n8n or cron."""
+    from app.analytics.report import send_weekly_report
+    return await send_weekly_report(recipient=to, days=days)
+
+
+@router.get("/report-preview", response_class=Response)
+async def report_preview(days: int = Query(7, ge=1, le=90)) -> Response:
+    """Render the report as HTML in the browser (no email sent) — for previewing."""
+    from app.analytics.report import build_weekly_report, render_html
+    html = render_html(await build_weekly_report(days))
+    return Response(content=html, media_type="text/html")
+
+
+# ---------------------------------------------------------------------------
 # Active WebSocket connections
 # ---------------------------------------------------------------------------
 
@@ -307,9 +333,8 @@ async def get_active_connections() -> dict:
 # ---------------------------------------------------------------------------
 
 
-@router.get("/tickets")
-async def get_recent_tickets(limit: int = Query(20, ge=1, le=100)) -> dict:
-    """Return recent sessions where a Zendesk ticket was created."""
+async def _collect_tickets(limit: int) -> list[dict]:
+    """Recent sessions where a Zendesk ticket was created, flattened to ticket rows."""
     from app.db.collections import sessions_collection
 
     cursor = (
@@ -352,8 +377,37 @@ async def get_recent_tickets(limit: int = Query(20, ge=1, le=100)) -> dict:
                 "created_at": str(s.get("created_at", "")),
             }
         )
+    return tickets
 
+
+@router.get("/tickets")
+async def get_recent_tickets(limit: int = Query(20, ge=1, le=100)) -> dict:
+    """Return recent sessions where a Zendesk ticket was created."""
+    tickets = await _collect_tickets(limit)
     return {"tickets": tickets, "total": len(tickets)}
+
+
+@router.get("/tickets/export-csv")
+async def tickets_export_csv(limit: int = Query(1000, ge=1, le=5000)) -> Response:
+    """Export Groot-created tickets as CSV."""
+    tickets = await _collect_tickets(limit)
+    buf = io.StringIO()
+    buf.write("\ufeff")  # UTF-8 BOM for Excel
+    writer = csv.writer(buf)
+    writer.writerow([
+        "ticket_id", "customer_name", "customer_email", "topic",
+        "order_number", "session_id", "created_at",
+    ])
+    for t in tickets:
+        writer.writerow([
+            t["ticket_id"], t["customer_name"], t["customer_email"], t["topic_id"],
+            t["order_number"], t["session_id"], t["created_at"][:19],
+        ])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=tickets.csv"},
+    )
 
 
 # ---------------------------------------------------------------------------

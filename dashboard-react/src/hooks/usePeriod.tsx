@@ -1,16 +1,15 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
-type Period = 7 | 14 | 30 | 90;
-
+// Any lookback window from 1–365 days. Presets are quick-picks; custom is free-form.
 interface PeriodContextValue {
-  days: Period;
-  setDays: (d: Period) => void;
+  days: number;
+  setDays: (d: number) => void;
 }
 
 const PeriodContext = createContext<PeriodContextValue>({ days: 7, setDays: () => {} });
 
 export function PeriodProvider({ children }: { children: ReactNode }) {
-  const [days, setDays] = useState<Period>(7);
+  const [days, setDays] = useState<number>(7);
   return (
     <PeriodContext.Provider value={{ days, setDays }}>
       {children}

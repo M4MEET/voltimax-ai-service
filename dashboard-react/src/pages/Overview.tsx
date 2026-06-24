@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Bar, Line } from 'react-chartjs-2';
-import { apiFetch } from '../api';
+import { Mail } from 'lucide-react';
+import { apiFetch, adminFetch } from '../api';
 import { usePeriod } from '../hooks/usePeriod';
 import type { OverviewData, EscalationStat, RatingsData, ActiveConnectionsData, KnowledgeStatus } from '../types';
 import KpiCard from '../components/KpiCard';
@@ -118,7 +119,23 @@ export default function Overview() {
   const [combined, setCombined] = useState<CombinedTimeseries | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [sendingReport, setSendingReport] = useState(false);
+  const [reportMsg, setReportMsg] = useState('');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  async function sendReport() {
+    setSendingReport(true);
+    setReportMsg('');
+    try {
+      const res = await adminFetch<{ sent: boolean; recipient?: string; error?: string }>('POST', `/api/admin/send-report?days=${days}`);
+      setReportMsg(res.sent ? `Sent to ${res.recipient}` : `Not sent: ${res.error}`);
+    } catch {
+      setReportMsg('Failed to send report');
+    } finally {
+      setSendingReport(false);
+      setTimeout(() => setReportMsg(''), 6000);
+    }
+  }
 
   // Fetch active connections and auto-refresh every 10s
   useEffect(() => {
@@ -207,7 +224,20 @@ export default function Overview() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-xl font-bold text-gray-900">Dashboard Overview</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-gray-900">Dashboard Overview</h1>
+        <div className="flex items-center gap-3">
+          {reportMsg && <span className="text-xs text-gray-500">{reportMsg}</span>}
+          <button
+            onClick={sendReport}
+            disabled={sendingReport}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+            title={`Email this ${days}-day summary to the support inbox`}
+          >
+            <Mail size={14} /> {sendingReport ? 'Sending…' : 'Email Report'}
+          </button>
+        </div>
+      </div>
 
       {/* Primary KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

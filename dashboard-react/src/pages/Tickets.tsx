@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Ticket, Copy, ExternalLink } from 'lucide-react';
-import { apiFetch } from '../api';
+import { Ticket, Copy, ExternalLink, Download } from 'lucide-react';
+import { apiFetch, downloadFile } from '../api';
 import KpiCard from '../components/KpiCard';
 import DataTable from '../components/DataTable';
 import type { Column } from '../components/DataTable';
@@ -148,15 +148,24 @@ export default function Tickets() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Tickets</h1>
-        <a
-          href="https://battrongmbh.zendesk.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
-        >
-          <ExternalLink size={15} />
-          Open Zendesk
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => downloadFile('/api/admin/tickets/export-csv', 'tickets.csv').catch(() => {})}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
+          >
+            <Download size={15} />
+            Export CSV
+          </button>
+          <a
+            href="https://battrongmbh.zendesk.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
+          >
+            <ExternalLink size={15} />
+            Open Zendesk
+          </a>
+        </div>
       </div>
 
       {/* KPI cards */}

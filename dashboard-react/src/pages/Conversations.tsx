@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Search, Eye, ChevronLeft, ChevronRight, Package, ChevronDown, AlertTriangle, X, Filter } from 'lucide-react';
-import { apiFetch } from '../api';
+import { Search, Eye, ChevronLeft, ChevronRight, Package, ChevronDown, AlertTriangle, X, Filter, Download } from 'lucide-react';
+import { apiFetch, downloadFile } from '../api';
 import type { ConversationsResponse, SessionSummary, ConversationDetail, SessionEvent } from '../types';
 import DataTable from '../components/DataTable';
 import type { Column } from '../components/DataTable';
@@ -227,9 +227,29 @@ export default function Conversations() {
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
+  function exportCsv() {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (topic) params.set('topic', topic);
+    if (filterTag) params.set('tag', filterTag);
+    if (filterStatus) params.set('status', filterStatus);
+    if (filterTicket) params.set('has_ticket', 'true');
+    const qs = params.toString();
+    downloadFile(`/api/analytics/conversations/export-csv${qs ? '?' + qs : ''}`, 'conversations.csv').catch(() => {});
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-xl font-bold text-gray-900">Conversations</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-gray-900">Conversations</h1>
+        <button
+          onClick={exportCsv}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+          title="Export the filtered conversations as CSV"
+        >
+          <Download size={14} /> Export CSV
+        </button>
+      </div>
 
       {/* Search + Filters */}
       <div className="space-y-3">

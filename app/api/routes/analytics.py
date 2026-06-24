@@ -57,6 +57,37 @@ async def conversations(
     return await aggregator.get_conversations(skip, limit, topic, search, tag, status, has_ticket)
 
 
+@router.get("/conversations/export-csv")
+async def conversations_export_csv(
+    topic: str | None = Query(None),
+    search: str | None = Query(None),
+    tag: str | None = Query(None),
+    status: str | None = Query(None),
+    has_ticket: bool | None = Query(None),
+) -> Response:
+    """Export all matching conversations as CSV (respects the active filters)."""
+    data = await aggregator.get_conversations(0, 5000, topic, search, tag, status, has_ticket)
+    buf = io.StringIO()
+    buf.write("﻿")  # UTF-8 BOM for Excel
+    writer = csv.writer(buf)
+    writer.writerow([
+        "chat_id", "customer_name", "customer_email", "topic", "status",
+        "close_reason", "messages", "order_number", "escalation_reason", "created_at",
+    ])
+    for s in data.get("sessions", []):
+        writer.writerow([
+            s.get("chat_id", ""), s.get("customer_name", ""), s.get("customer_email", ""),
+            s.get("topic_id", ""), s.get("status", ""), s.get("close_reason", ""),
+            s.get("message_count", 0), s.get("order_number", ""),
+            s.get("escalation_reason", ""), str(s.get("created_at", ""))[:19],
+        ])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=conversations.csv"},
+    )
+
+
 @router.get("/conversation/{session_id}")
 async def conversation_detail(session_id: str) -> dict:
     """Full transcript for a single conversation."""
