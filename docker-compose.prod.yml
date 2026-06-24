@@ -10,6 +10,10 @@ services:
       - ./.env:/app/.env:ro
       - ./knowledge_files:/app/knowledge_files
       - ./static/forms:/app/static/forms
+    # Reach the on-host mail server via the host gateway instead of the
+    # public IP (containers can't hairpin to the host's own public address).
+    extra_hosts:
+      - "mail.voltimax.de:host-gateway"
     depends_on:
       mongo:
         condition: service_healthy
