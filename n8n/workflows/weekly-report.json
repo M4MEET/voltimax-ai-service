@@ -1,61 +1,37 @@
 {
-  "id": "ke0cPFcUd99fro1f",
   "name": "VoltimaxChat — Weekly Report",
   "nodes": [
     {
       "parameters": {
-        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 9 * * 1" }] }
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 8 * * 1" }] }
       },
-      "name": "Every Monday 9am",
+      "name": "Every Monday 8am",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
-      "position": [240, 300]
+      "position": [260, 300]
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "={{$env.VOLTIMAX_AI_URL}}/api/analytics/overview?days=7",
+        "method": "POST",
+        "url": "={{$env.VOLTIMAX_AI_URL}}/api/admin/send-report?days=7",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             { "name": "X-Dashboard-Key", "value": "={{$env.VOLTIMAX_API_KEY}}" }
           ]
-        }
-      },
-      "name": "Fetch Weekly Stats",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [460, 300]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "={{$env.VOLTIMAX_AI_URL}}/health",
+        },
         "options": {}
       },
-      "name": "Fetch Health",
+      "name": "Send Weekly Report",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
-      "position": [460, 480]
-    },
-    {
-      "parameters": {
-        "fromEmail": "={{$env.SMTP_FROM || 'noreply@voltimax.de'}}",
-        "toEmail": "={{$env.SUPPORT_EMAIL || 'imeetjoshi@gmail.com'}}",
-        "subject": "Groot Weekly Report — {{new Date().toISOString().slice(0,10)}}",
-        "text": "VoltimaxChat Groot — Weekly Performance Report\n================================================\n\nPeriod: Last 7 days\nGenerated: {{new Date().toISOString()}}\n\n--- KPIs ---\nTotal Chats: {{$node['Fetch Weekly Stats'].json.total_chats}}\nAI Resolution Rate: {{$node['Fetch Weekly Stats'].json.ai_resolution_rate}}%\nEscalation Rate: {{$node['Fetch Weekly Stats'].json.escalation_rate}}%\nTickets Created: {{$node['Fetch Weekly Stats'].json.tickets_created}}\nToken Usage: {{$node['Fetch Weekly Stats'].json.token_usage}}\n\n--- Session Close Reasons ---\n{{JSON.stringify($node['Fetch Weekly Stats'].json.close_reasons || {}, null, 2)}}\n\n--- Semantic Cache ---\nCached Responses: {{$node['Fetch Health'].json.semantic_cache?.response_cache_size || 0}}\nCached Embeddings: {{$node['Fetch Health'].json.semantic_cache?.embedding_cache_size || 0}}\n\n--- System Health ---\nStatus: {{$node['Fetch Health'].json.status}}\nMongoDB: {{$node['Fetch Health'].json.mongodb}}\n\nDashboard: https://chat.voltimax.de/dashboard\nLangSmith: https://eu.smith.langchain.com"
-      },
-      "name": "Send Weekly Email",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 1,
-      "position": [680, 380],
-      "credentials": { "smtp": { "id": "1", "name": "Voltimax SMTP" } }
+      "position": [520, 300]
     }
   ],
   "connections": {
-    "Every Monday 9am": { "main": [[{ "node": "Fetch Weekly Stats", "type": "main", "index": 0 }, { "node": "Fetch Health", "type": "main", "index": 0 }]] },
-    "Fetch Weekly Stats": { "main": [[{ "node": "Send Weekly Email", "type": "main", "index": 0 }]] },
-    "Fetch Health": { "main": [[{ "node": "Send Weekly Email", "type": "main", "index": 0 }]] }
+    "Every Monday 8am": {
+      "main": [[{ "node": "Send Weekly Report", "type": "main", "index": 0 }]]
+    }
   },
   "active": false,
   "settings": { "executionOrder": "v1" },
