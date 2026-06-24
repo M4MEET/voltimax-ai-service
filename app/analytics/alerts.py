@@ -30,7 +30,7 @@ def _cooldown_ok(key: str) -> bool:
     return True
 
 
-def _send(subject: str, html: str) -> bool:
+def _send(subject: str, html: str, text: str) -> bool:
     config = get_config()
     smtp = config.escalation.smtp
     to_email = config.escalation.support_email
@@ -38,7 +38,7 @@ def _send(subject: str, html: str) -> bool:
         logger.warning("Alert not sent — SMTP/recipient not configured")
         return False
     from app.escalation.email_sender import _send_email
-    return _send_email(smtp, to_email, subject, html, "See HTML version.")
+    return _send_email(smtp, to_email, subject, html, text)
 
 
 async def check_and_alert(error_minutes: int = 15) -> dict:
@@ -77,14 +77,26 @@ async def check_and_alert(error_minutes: int = 15) -> dict:
         )
         html = (
             f'<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:640px">'
-            f'<h2 style="color:#dc2626">&#9888;&#65039; Groot API Errors</h2>'
+            f'<h2 style="color:#dc2626">Groot API Errors</h2>'
             f'<p style="font-size:13px;color:#374151">{len(errors)} error(s) in the last '
             f'{error_minutes} minutes:</p>'
             f'<table style="width:100%;border-collapse:collapse">{rows}</table>'
             f'<p style="font-size:12px;color:#9ca3af;margin-top:16px">'
             f'Dashboard: https://chat.voltimax.de/dashboard/logs</p></div>'
         )
-        if _send(f"⚠️ Groot API Errors — {len(errors)} in last {error_minutes}min", html):
+        text_lines = "\n".join(
+            f'- {str(e.get("timestamp",""))[:19]}  {e.get("logger","?")}: '
+            f'{str(e.get("message",""))[:200]}'
+            for e in errors[:20]
+        )
+        text = (
+            f"Groot detected {len(errors)} error(s) in the AI service logs over "
+            f"the last {error_minutes} minutes.\n\n"
+            f"{text_lines}\n\n"
+            f"Full logs: https://chat.voltimax.de/dashboard/logs\n\n"
+            f"This is an automated monitoring message from the Voltimax chat service."
+        )
+        if _send(f"Groot API Errors — {len(errors)} in last {error_minutes}min", html, text):
             result["emails_sent"].append("api_errors")
 
     # ── 2. Health: MongoDB reachable? ──
@@ -99,14 +111,22 @@ async def check_and_alert(error_minutes: int = 15) -> dict:
     if not mongo_ok and _cooldown_ok("health"):
         html = (
             '<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:640px">'
-            '<h2 style="color:#dc2626">&#128308; Groot Health Alert</h2>'
+            '<h2 style="color:#dc2626">Groot Health Alert</h2>'
             '<p style="font-size:14px;color:#374151"><b>MongoDB is unreachable.</b> '
             'The chat service cannot read or write sessions, knowledge, or analytics. '
             'Immediate attention required.</p>'
             '<p style="font-size:12px;color:#9ca3af">Check: '
             '<code>docker compose -f docker-compose.prod.yml ps mongo</code></p></div>'
         )
-        if _send("\U0001f534 Groot Health Alert — MongoDB unreachable", html):
+        text = (
+            "Groot health alert: MongoDB is unreachable.\n\n"
+            "The chat service cannot read or write sessions, knowledge, or "
+            "analytics. Immediate attention required.\n\n"
+            "Check container status:\n"
+            "  docker compose -f docker-compose.prod.yml ps mongo\n\n"
+            "This is an automated monitoring message from the Voltimax chat service."
+        )
+        if _send("Groot Health Alert — MongoDB unreachable", html, text):
             result["emails_sent"].append("health")
 
     return result
