@@ -6,6 +6,7 @@ export interface OverviewData {
   tickets_created: number;
   token_usage: number;
   ai_resolution_rate: number;
+  avg_response_ms: number;
   period_days: number;
   close_reasons: Record<string, number>;
   semantic_cache: {
@@ -13,6 +14,17 @@ export interface OverviewData {
     response_cache_size: number;
     total_entries: number;
     expired: number;
+    hits?: number;
+    misses?: number;
+    hit_rate?: number;
+  };
+  trends?: {
+    total_chats: number | null;
+    escalation_rate: number | null;
+    ai_resolution_rate: number | null;
+    tickets_created: number | null;
+    token_usage: number | null;
+    avg_response_ms: number | null;
   };
 }
 

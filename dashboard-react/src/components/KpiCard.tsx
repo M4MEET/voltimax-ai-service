@@ -20,6 +20,10 @@ interface KpiCardProps {
   color?: string;
   index?: number;
   trend?: Trend;
+  /** Real period-over-period % change. null = no prior baseline. */
+  delta?: number | null;
+  /** Which direction counts as "good" for coloring the delta. Default 'up'. */
+  deltaGoodWhen?: 'up' | 'down';
   greenLeftBorder?: boolean;
   pulsingDot?: boolean;
   to?: string;
@@ -31,6 +35,20 @@ function TrendIcon({ trend }: { trend: Trend }) {
   return <Minus className="w-3.5 h-3.5 text-gray-300" />;
 }
 
+/** Render a real % delta vs previous period, colored by whether the change is good or bad. */
+function DeltaBadge({ delta, goodWhen }: { delta: number; goodWhen: 'up' | 'down' }) {
+  const rising = delta > 0;
+  const isGood = (rising && goodWhen === 'up') || (!rising && goodWhen === 'down');
+  const color = delta === 0 ? 'text-gray-400' : isGood ? 'text-emerald-600' : 'text-red-500';
+  const Icon = rising ? TrendingUp : TrendingDown;
+  return (
+    <span className={clsx('flex items-center gap-0.5 text-xs font-medium', color)} title="vs. previous period">
+      {delta !== 0 && <Icon className="w-3 h-3" />}
+      {delta > 0 ? '+' : ''}{delta}%
+    </span>
+  );
+}
+
 export default function KpiCard({
   label,
   value,
@@ -38,6 +56,8 @@ export default function KpiCard({
   color = 'blue',
   index = 0,
   trend,
+  delta,
+  deltaGoodWhen = 'up',
   greenLeftBorder = false,
   pulsingDot = false,
   to,
@@ -59,8 +79,12 @@ export default function KpiCard({
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
             {label}
           </p>
-          <div className="flex items-center gap-1">
-            {trend && <TrendIcon trend={trend} />}
+          <div className="flex items-center gap-1.5">
+            {delta != null ? (
+              <DeltaBadge delta={delta} goodWhen={deltaGoodWhen} />
+            ) : trend ? (
+              <TrendIcon trend={trend} />
+            ) : null}
             {to && <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-indigo-400 transition-colors" />}
           </div>
         </div>

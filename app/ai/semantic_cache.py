@@ -51,6 +51,8 @@ class SemanticCache:
     def __init__(self):
         self._embedding_cache: dict[str, list[float]] = {}  # text → vector
         self._response_cache: list[CacheEntry] = []
+        self._hits = 0    # cacheable lookups that found a match (since startup)
+        self._misses = 0  # cacheable lookups that found no match
 
     # ── Layer 1: Embedding cache ──
 
@@ -110,6 +112,7 @@ class SemanticCache:
         result["threshold"] = SIMILARITY_THRESHOLD
 
         if best_entry:
+            self._hits += 1
             result["cache_hit"] = True
             result["cached_query"] = best_entry.query
             result["cached_response_len"] = len(best_entry.response)
@@ -117,6 +120,8 @@ class SemanticCache:
                 f"Semantic cache HIT: score={best_score:.3f} "
                 f"cached_q={best_entry.query[:50]!r}"
             )
+        else:
+            self._misses += 1
 
         return result
 
@@ -180,11 +185,16 @@ class SemanticCache:
     def stats(self) -> dict:
         """Return cache statistics."""
         alive = [e for e in self._response_cache if not e.is_expired()]
+        total_lookups = self._hits + self._misses
+        hit_rate = (self._hits / total_lookups * 100) if total_lookups else 0.0
         return {
             "embedding_cache_size": len(self._embedding_cache),
             "response_cache_size": len(alive),
             "total_entries": len(self._response_cache),
             "expired": len(self._response_cache) - len(alive),
+            "hits": self._hits,
+            "misses": self._misses,
+            "hit_rate": round(hit_rate, 1),  # % since server startup
         }
 
 

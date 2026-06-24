@@ -12,30 +12,68 @@ from app.db.collections import (
 
 class AnalyticsAggregator:
 
-    async def get_overview(self, days: int = 7) -> dict:
-        since = datetime.now(timezone.utc) - timedelta(days=days)
-
-        total = await sessions_collection().count_documents(
-            {"created_at": {"$gte": since}}
-        )
-        active = await sessions_collection().count_documents({"status": "active"})
+    async def _window_metrics(self, start, end) -> dict:
+        """Core counts for a [start, end) time window — used for current + previous period."""
+        rng = {"$gte": start, "$lt": end}
+        total = await sessions_collection().count_documents({"created_at": rng})
         escalated = await sessions_collection().count_documents(
-            {"created_at": {"$gte": since}, "status": "escalated"}
+            {"created_at": rng, "status": "escalated"}
         )
         tickets = await analytics_events_collection().count_documents(
-            {"event_type": "escalation", "created_at": {"$gte": since}}
+            {"event_type": "escalation", "created_at": rng}
         )
-
-        # Token usage aggregation
-        pipeline = [
-            {"$match": {"created_at": {"$gte": since}}},
+        token_result = await sessions_collection().aggregate([
+            {"$match": {"created_at": rng}},
             {"$group": {"_id": None, "total_tokens": {"$sum": "$total_tokens"}}},
-        ]
-        token_result = await sessions_collection().aggregate(pipeline).to_list(1)
+        ]).to_list(1)
         tokens = token_result[0]["total_tokens"] if token_result else 0
+        rt_result = await analytics_events_collection().aggregate([
+            {"$match": {"event_type": "response_time", "created_at": rng}},
+            {"$group": {"_id": None, "avg_ms": {"$avg": "$response_time_ms"}}},
+        ]).to_list(1)
+        avg_response_ms = round(rt_result[0]["avg_ms"], 0) if rt_result and rt_result[0].get("avg_ms") else 0
+        return {
+            "total": total,
+            "escalated": escalated,
+            "tickets": tickets,
+            "tokens": tokens,
+            "escalation_rate": (escalated / total * 100) if total > 0 else 0.0,
+            "resolution_rate": ((total - escalated) / total * 100) if total > 0 else 0.0,
+            "avg_response_ms": avg_response_ms,
+        }
 
-        escalation_rate = (escalated / total * 100) if total > 0 else 0.0
-        resolution_rate = ((total - escalated) / total * 100) if total > 0 else 0.0
+    @staticmethod
+    def _pct_delta(current: float, previous: float) -> float | None:
+        """Percentage change vs previous period. None when no baseline to compare."""
+        if previous == 0:
+            return None
+        return round((current - previous) / previous * 100, 1)
+
+    async def get_overview(self, days: int = 7) -> dict:
+        now = datetime.now(timezone.utc)
+        since = now - timedelta(days=days)
+        prev_since = now - timedelta(days=days * 2)
+
+        cur = await self._window_metrics(since, now)
+        prev = await self._window_metrics(prev_since, since)
+
+        total = cur["total"]
+        active = await sessions_collection().count_documents({"status": "active"})
+        escalated = cur["escalated"]
+        tickets = cur["tickets"]
+        tokens = cur["tokens"]
+        escalation_rate = cur["escalation_rate"]
+        resolution_rate = cur["resolution_rate"]
+
+        # Period-over-period trend deltas (None = no prior baseline)
+        trends = {
+            "total_chats": self._pct_delta(total, prev["total"]),
+            "escalation_rate": self._pct_delta(escalation_rate, prev["escalation_rate"]),
+            "ai_resolution_rate": self._pct_delta(resolution_rate, prev["resolution_rate"]),
+            "tickets_created": self._pct_delta(tickets, prev["tickets"]),
+            "token_usage": self._pct_delta(tokens, prev["tokens"]),
+            "avg_response_ms": self._pct_delta(cur["avg_response_ms"], prev["avg_response_ms"]),
+        }
 
         # Close reason breakdown
         close_pipeline = [
@@ -62,9 +100,11 @@ class AnalyticsAggregator:
             "tickets_created": tickets,
             "token_usage": tokens,
             "ai_resolution_rate": round(resolution_rate, 1),
+            "avg_response_ms": int(cur["avg_response_ms"]),
             "period_days": days,
             "close_reasons": close_reasons,
             "semantic_cache": cache_stats,
+            "trends": trends,
         }
 
     async def get_topic_breakdown(self, days: int = 7) -> list[dict]:

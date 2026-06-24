@@ -182,22 +182,24 @@ export default function Overview() {
     );
   }
 
+  const t = overview.trends;
   const kpis = [
-    { label: 'Total Chats', value: (overview?.total_chats ?? 0).toLocaleString(), color: 'blue', sub: `Last ${days}d`, trend: 'up' as const, to: '/analytics/chats' },
+    { label: 'Total Chats', value: (overview?.total_chats ?? 0).toLocaleString(), color: 'blue', sub: `Last ${days}d`, delta: t?.total_chats, deltaGoodWhen: 'up' as const, to: '/analytics/chats' },
     { label: 'Active Now', value: activeNow, color: 'green', sub: 'Live', trend: 'neutral' as const, greenLeftBorder: activeNow > 0, pulsingDot: true },
-    { label: 'Escalation Rate', value: `${overview.escalation_rate.toFixed(1)}%`, color: 'yellow', sub: 'Handoffs to human', trend: 'down' as const, to: '/analytics/escalations' },
-    { label: 'AI Resolution', value: `${overview.ai_resolution_rate.toFixed(1)}%`, color: 'green', sub: 'Resolved by AI', trend: 'up' as const, to: '/analytics/resolution' },
-    { label: 'Tickets Created', value: overview.tickets_created.toLocaleString(), color: 'red', sub: 'Support tickets', trend: 'neutral' as const, to: '/analytics/tickets' },
-    { label: 'Token Usage', value: overview.token_usage.toLocaleString(), color: 'purple', sub: 'LLM tokens used', trend: 'up' as const, to: '/analytics/tokens' },
+    { label: 'Escalation Rate', value: `${overview.escalation_rate.toFixed(1)}%`, color: 'yellow', sub: 'Handoffs to human', delta: t?.escalation_rate, deltaGoodWhen: 'down' as const, to: '/analytics/escalations' },
+    { label: 'AI Resolution', value: `${overview.ai_resolution_rate.toFixed(1)}%`, color: 'green', sub: 'Resolved by AI', delta: t?.ai_resolution_rate, deltaGoodWhen: 'up' as const, to: '/analytics/resolution' },
+    { label: 'Tickets Created', value: overview.tickets_created.toLocaleString(), color: 'red', sub: 'Support tickets', delta: t?.tickets_created, deltaGoodWhen: 'down' as const, to: '/analytics/tickets' },
+    { label: 'Token Usage', value: overview.token_usage.toLocaleString(), color: 'purple', sub: 'LLM tokens used', delta: t?.token_usage, deltaGoodWhen: 'down' as const, to: '/analytics/tokens' },
   ];
 
   const cacheStats = overview.semantic_cache || {};
   const closeReasons = overview.close_reasons || {};
+  const cacheLookups = (cacheStats.hits ?? 0) + (cacheStats.misses ?? 0);
 
   const secondaryKpis = [
-    { label: 'Avg Response Time', value: `${Math.round(overview.token_usage > 0 ? 320 : 0)}ms`, color: 'cyan', sub: 'End-to-end latency', trend: 'down' as const, to: '/analytics/response_time' },
-    { label: 'Knowledge Base', value: knowledgeVectors.toLocaleString(), color: 'blue', sub: 'Total vectors', trend: 'up' as const, to: '/knowledge' },
-    { label: 'Cache Hit Rate', value: cacheStats.response_cache_size || 0, color: 'green', sub: `${cacheStats.embedding_cache_size || 0} embeddings cached`, trend: 'up' as const },
+    { label: 'Avg Response Time', value: overview.avg_response_ms > 0 ? `${overview.avg_response_ms}ms` : '—', color: 'cyan', sub: 'End-to-end latency', delta: t?.avg_response_ms, deltaGoodWhen: 'down' as const, to: '/analytics/response_time' },
+    { label: 'Knowledge Base', value: knowledgeVectors.toLocaleString(), color: 'blue', sub: 'Total vectors', to: '/knowledge' },
+    { label: 'Cache Hit Rate', value: cacheLookups > 0 ? `${cacheStats.hit_rate ?? 0}%` : '—', color: 'green', sub: cacheLookups > 0 ? `${cacheStats.hits} hits / ${cacheLookups} lookups (since restart)` : 'No lookups yet' },
   ];
 
   const ratingLabels = ['1', '2', '3', '4', '5'];
