@@ -56,18 +56,14 @@ class EscalationActions:
             transcript_lines.append(f"{role_label}: {msg['content']}")
         transcript = "\n".join(transcript_lines)
 
-        # 3. Build HTML transcript
+        # 3. Build HTML summary
         summary_html = _summary_to_html(summary)
-        transcript_html = "<br>\n".join(
-            f"<b>{'Kunde' if msg['role'] == 'user' else 'Groot'}</b>: {msg['content']}"
-            for msg in history
-        )
 
         # 4. Ticket body — just the customer's last message (adapter builds the full email)
         customer_messages = [msg["content"] for msg in history if msg["role"] == "user"]
         ticket_body = customer_messages[-1] if customer_messages else ""
 
-        # 5. Internal note (private — AI summary + transcript + metadata)
+        # 5. Internal note (private — AI summary + metadata)
         metadata_items = {
             "Session": session_id,
             "Topic": topic,
@@ -80,9 +76,6 @@ class EscalationActions:
             f"<p><b>\U0001f916 Groot Bot</b> \u2014 Automatische Zusammenfassung</p>\n"
             f"<h3>\U0001f4cb AI Summary</h3>\n"
             f"{summary_html}"
-            f"<br><br>\n"
-            f"<h3>\U0001f4dd Gespr\u00e4chsverlauf</h3>\n"
-            f"{transcript_html}"
             f"<br><br>\n"
             f"<h3>\U0001f4ca Metadata</h3>\n"
             f"{metadata_html}"
