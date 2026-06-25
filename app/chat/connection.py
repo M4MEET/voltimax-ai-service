@@ -549,12 +549,12 @@ class ConnectionHandler:
                             continue
 
                         elif card_action == "order_lookup":
-                            # Loop-breaker: the dispatch event (line ~442) includes the
-                            # current request, so a count >=2 means the lookup card was
-                            # already shown before. If there's still no verified order,
-                            # the customer can't provide the number/ZIP — offer a support
-                            # ticket instead of re-showing the card for the Nth time.
-                            if self._order_lookup_shown_count(session_data) >= 2 and not verified_order:
+                            # Loop-breaker: session_data is the snapshot from the START of
+                            # this turn (before line ~442 records the current event), so the
+                            # count reflects PRIOR shows only. >=1 means the lookup card was
+                            # already shown once — on this second attempt, stop re-showing
+                            # and offer a support ticket instead of looping.
+                            if self._order_lookup_shown_count(session_data) >= 1 and not verified_order:
                                 await self._offer_order_help_ticket(websocket, session_id, user_claims, msg.content)
                                 continue
                             if tier != 2:
