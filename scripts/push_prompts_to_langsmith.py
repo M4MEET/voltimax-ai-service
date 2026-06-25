@@ -333,15 +333,15 @@ If customer HAS a verified order ({{has_order}}):
   "none" — general questions about the verified order (order date, what items, total amount, status summary) — the AI already has the order data cached and can answer directly
 
 ALWAYS available (with or without verified order):
-  "escalation_ticket" — wants human agent, contact support, speak to someone, support kontaktieren, Hilfe von einem Mitarbeiter, create ticket, open ticket
+  "escalation_ticket" — wants to be CONNECTED to a human agent NOW or to OPEN a ticket: "support kontaktieren", "mit einem Mitarbeiter sprechen", "Hilfe von einem Mitarbeiter", "Ticket erstellen". This is an ACTION (start a ticket), not an information request. Do NOT use for asking HOW to contact support — "Wie erreiche ich den Kundendienst?", "Kontaktdaten", "Telefonnummer", "Hotline", "Öffnungszeiten" are informational → action "none" (the AI gives the contact details).
   "ticket_lookup" — wants to check status of an existing support ticket, mentions ticket number, asks about ticket update
   "compatibility_check" — ONLY when customer mentions a specific vehicle (car make/model/year, motorcycle) like "BMW 3er", "Audi A4 2020", "welche Batterie passt in meinen Golf". Must mention a vehicle — NEVER use this for product name searches like "Varta H3" or "search for battery" — those are product_query with action "none"
   "batteriepfand" — asking about Batteriepfand, battery deposit return, Pfandrückgabe, Altbatterie zurückgeben, wants to submit Batteriepfand forms
   "account_info" — asking about their account, profile, login, password reset, address management, personal data, Kundenkonto, Kontoinformationen
 
 If customer does NOT have a verified order:
-  "order_lookup" — talking about THEIR specific order, needs verification. NOT for general policy questions (return policy, shipping costs) — those are "none" with rag_query. Also use this when customer asks about payment status, invoice, tracking, refund, or ANY order-specific information WITHOUT a verified order — they need to verify their order first.
-  "no_order" — explicitly says they don't have an order, want pre-sales help
+  "order_lookup" — talking about THEIR specific order, needs verification. NOT for general policy questions (return policy, shipping costs) — those are "none" with rag_query. Also use this when customer asks about payment status, invoice, tracking, refund, or ANY order-specific information WITHOUT a verified order — they need to verify their order first. ALSO use this when the customer HAS an order but says they CANNOT FIND or DON'T HAVE the order number or invoice ZIP (e.g. "Ich finde die Nummern nicht", "Ich habe keine Bestellnummer", "wo finde ich die Bestellnummer?") — the system will offer help/escalation. NEVER invent an alternative lookup method (by email, date, or product) — the ONLY ways to verify are order number + invoice ZIP, otherwise escalate to support.
+  "no_order" — explicitly says they have NO order at all (e.g. "Ich habe keine Bestellung", "ich habe noch nichts bestellt", want pre-sales help). Do NOT use when they have an order but just can't find the number — that is "order_lookup".
   "clarify" — message is too vague or ambiguous to determine intent (e.g. single words like "status", "hilfe", "problem" without context)
   "none" — not about a specific order, general question (products, shipping times, policies, greetings, etc.)
 
@@ -402,10 +402,18 @@ PROMPTS = {
 }
 
 
-def main():
-    print("Pushing Groot prompts to LangSmith...\n")
+def main(only: str | None = None):
+    if only:
+        if only not in PROMPTS:
+            print(f"Unknown prompt '{only}'. Available: {', '.join(PROMPTS)}")
+            return 1
+        items = {only: PROMPTS[only]}
+        print(f"Pushing ONLY '{only}' to LangSmith...\n")
+    else:
+        items = PROMPTS
+        print("Pushing ALL Groot prompts to LangSmith (overwrites any UI edits)...\n")
 
-    for name, (template, description) in PROMPTS.items():
+    for name, (template, description) in items.items():
         try:
             prompt = ChatPromptTemplate.from_messages([("system", template)])
             url = client.push_prompt(name, object=prompt, description=description, is_public=False)
@@ -415,7 +423,12 @@ def main():
 
     print("\nDone! Edit prompts at your LangSmith dashboard.")
     print("Prompts use mustache syntax ({{variable}}) — rendered by chevron at runtime.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--only", help="Push just one prompt by name (e.g. groot-unified-classifier)")
+    args = ap.parse_args()
+    raise SystemExit(main(args.only))
