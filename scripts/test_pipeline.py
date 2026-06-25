@@ -33,13 +33,18 @@ _AFTER_ORDER_CARD = [
     {"role": "assistant", "content": "Um dir zu helfen, brauche ich deine Bestelldaten. Bitte gib sie hier ein: [Bestellung suchen]"},
 ]
 
-# (label, message, context, expected_action)
+# (label, message, context, expected_action). expected_action may be a single
+# string or a list of acceptable actions (any match passes).
 CASES = [
     # ── #2BC03187 regression: customer can't find order number → must NOT loop ──
+    # "order_lookup" → connection.py count-based loop-breaker offers the ticket;
+    # "clarify" → connection.py order_status guard offers the ticket. BOTH are
+    # safe — the danger is "none"/"escalation_ticket"/etc. which reach the AI
+    # and let it improvise a fake email lookup. So both are accepted here.
     ("cant-find-numbers",   "Ich finde die Nummern nicht",
-        {"history": _AFTER_ORDER_CARD, "topic": "order_status"}, "order_lookup"),
+        {"history": _AFTER_ORDER_CARD, "topic": "order_status"}, ["order_lookup", "clarify"]),
     ("no-order-number",     "Ich habe keine Bestellnummer, ich habe mit s.montalbano@web.de bestellt",
-        {"history": _AFTER_ORDER_CARD, "topic": "order_status"}, "order_lookup"),
+        {"history": _AFTER_ORDER_CARD, "topic": "order_status"}, ["order_lookup", "clarify"]),
     ("truly-no-order",      "Ich habe keine Bestellung",
         {"history": _AFTER_ORDER_CARD, "topic": "order_status"}, "no_order"),
 
@@ -66,7 +71,8 @@ async def run_case(label, message, context, expected):
         history=context.get("history"),
     )
     got = result.get("action", "")
-    return got == expected, got, result
+    accepted = expected if isinstance(expected, (list, tuple, set)) else [expected]
+    return got in accepted, got, result
 
 
 async def main(verbose: bool = False):
@@ -82,7 +88,8 @@ async def main(verbose: bool = False):
         except Exception as e:
             ok, got, result = False, f"ERROR: {e}", {}
         mark = "✅" if ok else "❌"
-        print(f"{mark} {label:24s} expected={expected:18s} got={got}")
+        exp_str = "|".join(expected) if isinstance(expected, (list, tuple, set)) else expected
+        print(f"{mark} {label:24s} expected={exp_str:20s} got={got}")
         if verbose:
             print(f"     {result}")
         if ok:

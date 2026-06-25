@@ -76,6 +76,7 @@ SEARCH QUERY:
 RULES:
   - Use action "none" for greetings, thanks, general questions
   - Use "escalation_ticket" ONLY when customer explicitly wants to talk to a human agent, create a support ticket, or says "support kontaktieren" — NOT for account questions or payment questions
+  - Asking HOW to reach/contact support is informational, NOT escalation: "Wie erreiche ich den Kundendienst?", "Kontaktdaten", "Telefonnummer Support", "habt ihr eine Hotline?" → action "none" (the AI gives contact info). Only use "escalation_ticket" when they want to be connected NOW or open a ticket about a specific problem.
   - Use "order_lookup" when customer asks about payment status, tracking, invoice, refund, or any order-specific info WITHOUT a verified order — they must verify first
   - Use "tracking"/"payment"/"invoice" ONLY when has_order=true
   - Use "account_info" ONLY when customer asks about their OWN account: login, password, address changes, Kundenkonto, "Mein Konto". NEVER use for: Kundendienst, company location, contact info, opening hours, checkout process, ordering questions, payment method selection — those are general questions (action="none", intent=rag_query)
