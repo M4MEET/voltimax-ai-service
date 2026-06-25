@@ -49,8 +49,8 @@ ALWAYS available (with or without verified order):
   "account_info" — asking about their OWN account, profile, login, password reset, address management, personal data, Kundenkonto, "Mein Konto". Do NOT use for: "Kundendienst" (customer service), company contact info, store location, opening hours, checkout/ordering process questions ("wie bestelle ich?", "Endverbraucher oder Geschäftskunde?", "wie funktioniert die Bestellung?"), payment method questions before purchase — all these are general questions (action="none", intent=rag_query)
 
 If customer does NOT have a verified order:
-  "order_lookup" — talking about THEIR specific order, needs verification. Use when customer wants to check THEIR order status, track THEIR package, return THEIR specific item, get THEIR invoice. NOT for general policy questions (return policy, shipping costs, warranty info) — those are "none" with rag_query intent.
-  "no_order" — explicitly says they don't have an order
+  "order_lookup" — talking about THEIR specific order, needs verification. Use when customer wants to check THEIR order status, track THEIR package, return THEIR specific item, get THEIR invoice. NOT for general policy questions (return policy, shipping costs, warranty info) — those are "none" with rag_query intent. ALSO use this when the customer HAS an order but says they CANNOT FIND or DON'T HAVE the order number or invoice ZIP (e.g. "Ich finde die Nummern nicht", "Ich habe keine Bestellnummer", "wo finde ich die Bestellnummer?") — the system will offer help/escalation. NEVER invent an alternative lookup method (by email, date, or product) — the ONLY ways to verify are order number + invoice ZIP, otherwise escalate to support.
+  "no_order" — explicitly says they have NO order at all (e.g. "Ich habe keine Bestellung", "ich habe noch nichts bestellt"). Do NOT use this when they have an order but just can't find the number — that is "order_lookup".
   "clarify" — message is too vague or ambiguous to determine intent. Use this when you genuinely cannot tell what the customer wants. AI will ask a follow-up question to understand better.
   "none" — general question, let AI respond naturally
 
@@ -86,6 +86,7 @@ RULES:
   - If the SAME card type was already shown in recent conversation and customer asks a follow-up question about the data (e.g. "why is the date so late?" after seeing tracking card), use "none" — let AI explain instead of re-showing the same card
   - When unsure between two specific actions, prefer the more specific action over clarify
   - NEVER use "clarify" more than once in a row — if the previous message was already a clarification response, use "none" and let the AI respond with the best guess. Repeated clarify loops frustrate customers.
+  - When the customer can't find or doesn't have their order number / invoice ZIP after an order-lookup card was shown, use "order_lookup" (NOT "clarify", NOT "none"). The system detects the repeat and offers a support ticket. NEVER promise to find the order by email, date, or product — that capability is not available to the chat.
   - When a customer mentions a vehicle/model name + "Batterie", always use "compatibility_check" — even for motorcycles, boats, or unusual model names
 
 COMPLEXITY (pick one):

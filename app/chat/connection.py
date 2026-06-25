@@ -549,6 +549,56 @@ class ConnectionHandler:
                             continue
 
                         elif card_action == "order_lookup":
+                            # Loop-breaker: if we've already shown the order-lookup card
+                            # before (event recorded at line ~442 includes the current
+                            # request, so >=2 means a prior show) and there's still no
+                            # verified order, the customer can't provide the number/ZIP.
+                            # Stop re-showing the card — explain honestly and offer a
+                            # support ticket so a human can verify identity and look up
+                            # the order details. (Never invent an email/date lookup.)
+                            _prior_lookups = sum(
+                                1 for e in (session_data or {}).get("events", [])
+                                if e.get("type") == "card_action"
+                                and str(e.get("detail", "")).startswith("order_lookup ")
+                            )
+                            if _prior_lookups >= 2 and not verified_order:
+                                import re as _re
+                                _typed_email = ""
+                                _m = _re.search(r"[\w.+-]+@[\w-]+\.[\w.-]+", msg.content or "")
+                                if _m:
+                                    _typed_email = _m.group(0)
+                                intro = (
+                                    "Die **Bestellnummer** und die **Rechnungs-PLZ** findest du in "
+                                    "deiner Bestellbestätigungs-E-Mail von Voltimax. "
+                                    "Falls du sie nicht findest, erstelle ich dir gern ein "
+                                    "Support-Ticket — unser Team sucht deine Bestelldaten "
+                                    "heraus und sendet sie dir zu."
+                                )
+                                confirmation = {
+                                    "action": "create_ticket",
+                                    "title": "Bestelldaten anfragen",
+                                    "summary": "Kunde findet Bestellnummer / Rechnungs-PLZ nicht — Team sucht die Bestelldaten heraus.",
+                                    "fields": [
+                                        {"key": "customer_name", "label": "Name", "value": user_claims.get("name", ""), "editable": True, "type": "text"},
+                                        {"key": "customer_email", "label": "E-Mail", "value": user_claims.get("email", "") or _typed_email, "editable": True, "type": "text"},
+                                        {"key": "topic", "label": "Betreff", "value": "Bestelldaten anfragen", "editable": True, "type": "text", "prefix": "Groot Escalation — "},
+                                        {"key": "issue_description", "label": "Dein Anliegen", "value": "Ich finde meine Bestellnummer und Rechnungs-PLZ nicht. Bitte sucht meine Bestelldaten heraus und sendet sie mir zu.", "editable": True, "type": "textarea"},
+                                    ],
+                                }
+                                import asyncio as _aio
+                                await self._send_ws(websocket, OutgoingMessage(type="typing"))
+                                await _aio.sleep(0.8)
+                                ai_msg = await self.chat_manager.add_message(session_id, MessageRole.ASSISTANT, intro)
+                                await self._send_ws(websocket, OutgoingMessage(
+                                    type="ai_card", content=intro, message_id=ai_msg.id,
+                                    confirmation=confirmation,
+                                ))
+                                await self._send_ws(websocket, OutgoingMessage(type="play_sound", message="incoming"))
+                                await self.chat_manager.add_session_event(
+                                    session_id, "order_help_escalation",
+                                    "Customer can't find order number/ZIP — offered support ticket",
+                                )
+                                continue
                             if tier != 2:
                                 llm_provider = await self._get_provider_for_topic("order_status")
                                 await self.chat_manager.set_topic(session_id, "order_status", llm_provider)
